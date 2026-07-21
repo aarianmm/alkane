@@ -1,0 +1,53 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.header {
+  padding: var(--space-3) var(--space-4);
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0 var(--space-4) var(--space-4);
+  min-height: 0;
+}
+
+.main > :nth-child(2) {
+  flex: 1;
+  min-height: 320px;
+}
+
+@media (min-width: 900px) {
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "toolbar toolbar"
+      "editor name";
+    gap: var(--space-4);
+  }
+
+  .main > :nth-child(1) {
+    grid-area: toolbar;
+  }
+
+  .main > :nth-child(2) {
+    grid-area: editor;
+    min-height: 480px;
+  }
+
+  .main > :nth-child(3) {
+    grid-area: name;
+  }
+}
