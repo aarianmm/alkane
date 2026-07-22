@@ -128,3 +128,49 @@ describe("CLEAR_MOLECULE", () => {
     expect(state.selection).toBeNull();
   });
 });
+
+describe("UNDO / REDO", () => {
+  it("undoes and redoes a graph edit", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+    expect(state.graph.atoms).toHaveLength(2);
+
+    state = editorReducer(state, { type: "UNDO" });
+    expect(state.graph.atoms).toHaveLength(1);
+
+    state = editorReducer(state, { type: "REDO" });
+    expect(state.graph.atoms).toHaveLength(2);
+  });
+
+  it("is a no-op at either end of the stack", () => {
+    const state = createInitialState();
+    expect(editorReducer(state, { type: "UNDO" })).toBe(state);
+    expect(editorReducer(state, { type: "REDO" })).toBe(state);
+  });
+
+  it("drops the redo stack once a new edit is made", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+    state = editorReducer(state, { type: "UNDO" });
+    expect(state.history.future).toHaveLength(1);
+
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+    expect(state.history.future).toHaveLength(0);
+    expect(editorReducer(state, { type: "REDO" })).toBe(state);
+  });
+
+  it("clears the selection on undo/redo since it may reference a since-removed atom", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+    state = editorReducer(state, { type: "SELECT_ATOM", atomId: "1" });
+    state = editorReducer(state, { type: "UNDO" });
+    expect(state.selection).toBeNull();
+  });
+
+  it("doesn't record selection/tool changes as undoable edits", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_ATOM", atomId: state.graph.rootId });
+    state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "N" });
+    expect(state.history.past).toHaveLength(0);
+  });
+});

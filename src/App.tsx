@@ -25,6 +25,18 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selection]);
 
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      const modifier = event.metaKey || event.ctrlKey;
+      if (!modifier || event.key.toLowerCase() !== "z") return;
+      event.preventDefault();
+      dispatch({ type: event.shiftKey ? "REDO" : "UNDO" });
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   // The toolbar shows and edits whatever is selected; with nothing selected
   // it falls back to the "next atom" growth tool.
   const displayedElement =
@@ -68,6 +80,10 @@ function App() {
         canDelete={canDelete}
         onDelete={() => dispatch({ type: "DELETE_SELECTION" })}
         onClear={() => dispatch({ type: "CLEAR_MOLECULE" })}
+        canUndo={state.history.past.length > 0}
+        canRedo={state.history.future.length > 0}
+        onUndo={() => dispatch({ type: "UNDO" })}
+        onRedo={() => dispatch({ type: "REDO" })}
       />
       <div style={{ width: "min(90vw, 480px)", height: "min(90vw, 480px)", flex: 1 }}>
         <MoleculeEditor
