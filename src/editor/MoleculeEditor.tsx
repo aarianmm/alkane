@@ -3,6 +3,7 @@ import { openSlotCount } from "../graph/queries";
 import { angularDistance } from "../layout/hydrogens";
 import {
   computeAngleIns,
+  computeBondAngles,
   computeGrowthTargets,
   computeHydrogenPlacements,
   layoutFromRoot,
@@ -104,10 +105,15 @@ export function MoleculeEditor({
 }: MoleculeEditorProps) {
   const positions = layoutFromRoot(graph, style);
   const angleIns = computeAngleIns(graph, style);
+  const bondAngles = computeBondAngles(graph, style);
   const labels = new Map(
     graph.atoms.map((atom) => [
       atom.id,
-      style.label(atom, { hydrogenCount: openSlotCount(atom), angleIn: angleIns.get(atom.id) ?? null }),
+      style.label(atom, {
+        hydrogenCount: openSlotCount(atom),
+        angleIn: angleIns.get(atom.id) ?? null,
+        bondAngles: bondAngles.get(atom.id) ?? [],
+      }),
     ]),
   );
 
