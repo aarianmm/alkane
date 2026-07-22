@@ -16,6 +16,10 @@ interface ToolbarProps {
   canDelete: boolean;
   onDelete: () => void;
   onClear: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
 }
 
 export function Toolbar({
@@ -26,6 +30,10 @@ export function Toolbar({
   canDelete,
   onDelete,
   onClear,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }: ToolbarProps) {
   return (
     <div className={styles.toolbar} role="toolbar" aria-label="Molecule editing tools">
@@ -54,6 +62,20 @@ export function Toolbar({
             {label}
           </button>
         ))}
+      </div>
+      <div className={styles.group} aria-label="History">
+        <button type="button" className={styles.button} disabled={!canUndo} onClick={onUndo} title="Undo (Ctrl/Cmd+Z)">
+          Undo
+        </button>
+        <button
+          type="button"
+          className={styles.button}
+          disabled={!canRedo}
+          onClick={onRedo}
+          title="Redo (Ctrl/Cmd+Shift+Z)"
+        >
+          Redo
+        </button>
       </div>
       <div className={styles.group} aria-label="Editing">
         <button type="button" className={styles.button} disabled={!canDelete} onClick={onDelete}>

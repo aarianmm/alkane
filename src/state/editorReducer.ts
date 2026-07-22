@@ -13,6 +13,11 @@ export type Selection =
   | { kind: "bond"; atomIdA: string; atomIdB: string }
   | null;
 
+interface History {
+  past: MoleculeGraph[];
+  future: MoleculeGraph[];
+}
+
 export interface EditorState {
   graph: MoleculeGraph;
   selection: Selection;
@@ -23,6 +28,8 @@ export interface EditorState {
     element: Element;
     bondOrder: BondOrder;
   };
+  /** Undo/redo only covers the graph — selection and tool are transient UI state, not edits. */
+  history: History;
 }
 
 export function createInitialState(): EditorState {
@@ -31,6 +38,7 @@ export function createInitialState(): EditorState {
     selection: null,
     style: DEFAULT_STYLE,
     tool: { element: "C", bondOrder: 1 },
+    history: { past: [], future: [] },
   };
 }
 
@@ -44,15 +52,27 @@ export type EditorAction =
   | { type: "RETYPE_SELECTED_ATOM"; element: Element }
   | { type: "SET_SELECTED_BOND_ORDER"; order: BondOrder }
   | { type: "DELETE_SELECTION" }
-  | { type: "CLEAR_MOLECULE" };
+  | { type: "CLEAR_MOLECULE" }
+  | { type: "UNDO" }
+  | { type: "REDO" };
+
+/** Records the graph as it was just before a mutation, and drops the redo stack since it's now stale. */
+function withMutation(state: EditorState, graph: MoleculeGraph, extra: Partial<EditorState> = {}): EditorState {
+  return {
+    ...state,
+    ...extra,
+    graph,
+    history: { past: [...state.history.past, state.graph], future: [] },
+  };
+}
 
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case "GROW_ATOM":
-      return {
-        ...state,
-        graph: addAtomFromStub(state.graph, action.atomId, state.tool.element, state.tool.bondOrder),
-      };
+      return withMutation(
+        state,
+        addAtomFromStub(state.graph, action.atomId, state.tool.element, state.tool.bondOrder),
+      );
 
     case "SET_TOOL_ELEMENT":
       return { ...state, tool: { ...state.tool, element: action.element } };
@@ -71,13 +91,13 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
     case "RETYPE_SELECTED_ATOM": {
       if (state.selection?.kind !== "atom") return state;
-      return { ...state, graph: setAtomElement(state.graph, state.selection.atomId, action.element) };
+      return withMutation(state, setAtomElement(state.graph, state.selection.atomId, action.element));
     }
 
     case "SET_SELECTED_BOND_ORDER": {
       if (state.selection?.kind !== "bond") return state;
       const { atomIdA, atomIdB } = state.selection;
-      return { ...state, graph: setBondOrder(state.graph, atomIdA, atomIdB, action.order) };
+      return withMutation(state, setBondOrder(state.graph, atomIdA, atomIdB, action.order));
     }
 
     case "DELETE_SELECTION": {
@@ -86,16 +106,36 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
       if (selection.kind === "atom") {
         if (selection.atomId === state.graph.rootId) return state; // the seed can't be deleted
-        return { ...state, graph: deleteAtomSubtree(state.graph, selection.atomId), selection: null };
+        return withMutation(state, deleteAtomSubtree(state.graph, selection.atomId), { selection: null });
       }
-      return {
-        ...state,
-        graph: deleteBond(state.graph, selection.atomIdA, selection.atomIdB),
-        selection: null,
-      };
+      return withMutation(state, deleteBond(state.graph, selection.atomIdA, selection.atomIdB), { selection: null });
     }
 
     case "CLEAR_MOLECULE":
-      return { ...state, graph: createSeedGraph(), selection: null };
+      return withMutation(state, createSeedGraph(), { selection: null });
+
+    case "UNDO": {
+      const { past, future } = state.history;
+      if (past.length === 0) return state;
+      const graph = past[past.length - 1];
+      return {
+        ...state,
+        graph,
+        selection: null,
+        history: { past: past.slice(0, -1), future: [state.graph, ...future] },
+      };
+    }
+
+    case "REDO": {
+      const { past, future } = state.history;
+      if (future.length === 0) return state;
+      const graph = future[0];
+      return {
+        ...state,
+        graph,
+        selection: null,
+        history: { past: [...past, state.graph], future: future.slice(1) },
+      };
+    }
   }
 }
