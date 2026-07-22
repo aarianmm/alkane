@@ -8,10 +8,10 @@ describe("displayed.childAngle — root", () => {
     expect(angles).toEqual([0, 180, 90, -90]);
   });
 
-  it("nitrogen: east then west first, then its one remaining slot branches off that axis", () => {
+  it("nitrogen: east then west first, then its one remaining slot branches perpendicular (90°) off that axis — not 120°, which would crowd one side", () => {
     const valency = 3;
     const angles = [1, 2, 3].map((slot) => displayed.childAngle({ angleIn: null, grandAngleIn: null, slot, valency }));
-    expect(angles).toEqual([0, 180, 120]);
+    expect(angles).toEqual([0, 180, 90]);
   });
 
   it("spaces a divalent atom's 2 slots 180° apart (already just east/west)", () => {
@@ -34,14 +34,14 @@ describe("displayed.childAngle — non-root", () => {
     expect(slot3).toBe(angleIn - 90);
   });
 
-  it("nitrogen: slot 1 continues straight through, its one remaining slot is 120° off that axis", () => {
+  it("nitrogen: slot 1 continues straight through, its one remaining slot is perpendicular (angleIn + 90) — equidistant from both the parent bond and the continuation", () => {
     const valency = 3;
     const angleIn = 0;
     const slot1 = displayed.childAngle({ angleIn, grandAngleIn: null, slot: 1, valency });
     const slot2 = displayed.childAngle({ angleIn, grandAngleIn: null, slot: 2, valency });
 
     expect(slot1).toBe(angleIn);
-    expect(slot2).toBe(angleIn + 120);
+    expect(slot2).toBe(angleIn + 90);
   });
 
   it("a divalent atom (O/S) has only slot 1 — straight through, the correct ether convention", () => {
