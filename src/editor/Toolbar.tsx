@@ -1,4 +1,5 @@
 import type { BondOrder, Element } from "../graph/types";
+import type { StyleId } from "../styles";
 import styles from "./Toolbar.module.css";
 
 const ELEMENTS: Element[] = ["C", "O", "N", "S", "F", "Cl", "Br", "I"];
@@ -8,11 +9,20 @@ const BOND_ORDERS: { order: BondOrder; label: string }[] = [
   { order: 3, label: "≡" },
 ];
 
+const STYLE_LABELS: Record<StyleId, string> = {
+  displayed: "Displayed",
+  structural: "Structural",
+  skeletal: "Skeletal",
+};
+
 interface ToolbarProps {
   activeElement: Element;
   activeBondOrder: BondOrder;
   onSelectElement: (element: Element) => void;
   onSelectBondOrder: (order: BondOrder) => void;
+  activeStyle: StyleId;
+  availableStyles: StyleId[];
+  onSelectStyle: (style: StyleId) => void;
   canDelete: boolean;
   onDelete: () => void;
   onClear: () => void;
@@ -27,6 +37,9 @@ export function Toolbar({
   activeBondOrder,
   onSelectElement,
   onSelectBondOrder,
+  activeStyle,
+  availableStyles,
+  onSelectStyle,
   canDelete,
   onDelete,
   onClear,
@@ -63,6 +76,21 @@ export function Toolbar({
           </button>
         ))}
       </div>
+      {availableStyles.length > 1 && (
+        <div className={styles.group} aria-label="Formula style">
+          {availableStyles.map((id) => (
+            <button
+              key={id}
+              type="button"
+              className={`${styles.button} ${id === activeStyle ? styles.buttonActive : ""}`}
+              aria-pressed={id === activeStyle}
+              onClick={() => onSelectStyle(id)}
+            >
+              {STYLE_LABELS[id]}
+            </button>
+          ))}
+        </div>
+      )}
       <div className={styles.group} aria-label="History">
         <button type="button" className={styles.button} disabled={!canUndo} onClick={onUndo} title="Undo (Ctrl/Cmd+Z)">
           Undo

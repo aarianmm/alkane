@@ -21,7 +21,7 @@ interface History {
 export interface EditorState {
   graph: MoleculeGraph;
   selection: Selection;
-  /** Which of Displayed/Structural/Skeletal renders the graph. No switcher UI yet — only "displayed" is implemented. */
+  /** Which of Displayed/Structural/Skeletal renders the graph — switchable via the toolbar's style group. */
   style: StyleId;
   /** The element/bond-order that the next stub click will place. */
   tool: {
@@ -44,6 +44,7 @@ export function createInitialState(): EditorState {
 
 export type EditorAction =
   | { type: "GROW_ATOM"; atomId: string }
+  | { type: "SET_STYLE"; style: StyleId }
   | { type: "SET_TOOL_ELEMENT"; element: Element }
   | { type: "SET_TOOL_BOND_ORDER"; bondOrder: BondOrder }
   | { type: "SELECT_ATOM"; atomId: string }
@@ -73,6 +74,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         state,
         addAtomFromStub(state.graph, action.atomId, state.tool.element, state.tool.bondOrder),
       );
+
+    case "SET_STYLE":
+      return { ...state, style: action.style };
 
     case "SET_TOOL_ELEMENT":
       return { ...state, tool: { ...state.tool, element: action.element } };

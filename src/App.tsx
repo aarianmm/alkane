@@ -4,7 +4,8 @@ import { MoleculeEditor } from "./editor/MoleculeEditor";
 import { NameDisplay } from "./editor/NameDisplay";
 import { Toolbar } from "./editor/Toolbar";
 import { bondOrderBetween, findAtomById } from "./graph/queries";
-import { getStyle } from "./styles";
+import { getStyle, STYLES } from "./styles";
+import type { StyleId } from "./styles";
 import { createInitialState, editorReducer } from "./state/editorReducer";
 
 function App() {
@@ -51,6 +52,7 @@ function App() {
 
   const canDelete = selection !== null && !(selection.kind === "atom" && selection.atomId === state.graph.rootId);
   const style = getStyle(state.style);
+  const availableStyles = Object.keys(STYLES) as StyleId[];
 
   return (
     <div
@@ -80,6 +82,9 @@ function App() {
               : { type: "SET_TOOL_BOND_ORDER", bondOrder: order },
           )
         }
+        activeStyle={state.style}
+        availableStyles={availableStyles}
+        onSelectStyle={(style) => dispatch({ type: "SET_STYLE", style })}
         canDelete={canDelete}
         onDelete={() => dispatch({ type: "DELETE_SELECTION" })}
         onClear={() => dispatch({ type: "CLEAR_MOLECULE" })}

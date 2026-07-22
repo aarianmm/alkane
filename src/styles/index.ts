@@ -1,17 +1,18 @@
 import { displayed } from "./displayed";
+import { structural } from "./structural";
 import type { RenderStyle, StyleId } from "./types";
 
 export type { RenderStyle, StyleId, LabelSpec, LabelContext, ChildAngleContext } from "./types";
 
 /**
- * Structural and skeletal are specified in full in Alkane-Geometry-Design.md
- * but aren't implemented yet — they land here as self-contained additions
- * when their build step comes up. Until then "displayed" is the only style
- * actually reachable (no switcher UI ships with one style), but `EditorState`
- * already threads a `StyleId` through so the plumbing doesn't need revisiting.
+ * Skeletal is specified in full in Alkane-Geometry-Design.md but isn't
+ * implemented yet — it lands here as a self-contained addition when its
+ * build step comes up. `STYLES` stays a `Partial` until all three styles are
+ * registered.
  */
 export const STYLES: Partial<Record<StyleId, RenderStyle>> = {
   displayed,
+  structural,
 };
 
 export const DEFAULT_STYLE: StyleId = "displayed";

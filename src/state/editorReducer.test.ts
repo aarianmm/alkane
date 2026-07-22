@@ -33,6 +33,29 @@ describe("editorReducer", () => {
   });
 });
 
+describe("SET_STYLE", () => {
+  it("changes the active style without touching history or selection", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_ATOM", atomId: state.graph.rootId });
+    const pastLength = state.history.past.length;
+
+    state = editorReducer(state, { type: "SET_STYLE", style: "structural" });
+
+    expect(state.style).toBe("structural");
+    expect(state.history.past.length).toBe(pastLength);
+    expect(state.selection).toEqual({ kind: "atom", atomId: state.graph.rootId });
+  });
+
+  it("is untouched by undo/redo of graph edits", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SET_STYLE", style: "structural" });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+
+    state = editorReducer(state, { type: "UNDO" });
+    expect(state.style).toBe("structural");
+  });
+});
+
 describe("selection", () => {
   it("selects and clears atoms and bonds", () => {
     let state = createInitialState();
