@@ -3,9 +3,10 @@ import { closeRingBond } from "../graph/mutations";
 import { createInitialState, editorReducer } from "./editorReducer";
 
 describe("editorReducer", () => {
-  it("starts with a single seed carbon and the default growth tool", () => {
+  it("starts with a single seed carbon, Displayed style, and the default growth tool", () => {
     const state = createInitialState();
     expect(state.graph.atoms).toHaveLength(1);
+    expect(state.style).toBe("displayed");
     expect(state.tool).toEqual({ element: "C", bondOrder: 1 });
   });
 
@@ -13,7 +14,7 @@ describe("editorReducer", () => {
     let state = createInitialState();
     state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "O" });
     state = editorReducer(state, { type: "SET_TOOL_BOND_ORDER", bondOrder: 2 });
-    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId, angle: 0 });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
 
     expect(state.graph.atoms).toHaveLength(2);
     const grown = state.graph.atoms.find((a) => a.id !== state.graph.rootId)!;
@@ -23,7 +24,7 @@ describe("editorReducer", () => {
 
   it("changing the tool doesn't affect already-placed atoms", () => {
     let state = createInitialState();
-    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId, angle: 0 });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
     const before = state.graph;
 
     state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "N" });
@@ -65,7 +66,7 @@ describe("RETYPE_SELECTED_ATOM", () => {
 describe("SET_SELECTED_BOND_ORDER", () => {
   it("updates the selected bond's order", () => {
     let state = createInitialState();
-    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId, angle: 0 });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
     state = editorReducer(state, { type: "SELECT_BOND", atomIdA: state.graph.rootId, atomIdB: "1" });
     state = editorReducer(state, { type: "SET_SELECTED_BOND_ORDER", order: 3 });
 
@@ -82,7 +83,7 @@ describe("SET_SELECTED_BOND_ORDER", () => {
 describe("DELETE_SELECTION", () => {
   it("prunes the selected atom's subtree and clears the selection", () => {
     let state = createInitialState();
-    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId, angle: 0 });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
     state = editorReducer(state, { type: "SELECT_ATOM", atomId: "1" });
     state = editorReducer(state, { type: "DELETE_SELECTION" });
 
@@ -105,7 +106,7 @@ describe("DELETE_SELECTION", () => {
     let state = createInitialState();
     for (let i = 0; i < 5; i++) {
       const parent = i === 0 ? state.graph.rootId : String(i);
-      state = editorReducer(state, { type: "GROW_ATOM", atomId: parent, angle: 0 });
+      state = editorReducer(state, { type: "GROW_ATOM", atomId: parent });
     }
     state = { ...state, graph: closeRingBond(state.graph, "5", "0", 1) };
 
@@ -119,7 +120,7 @@ describe("DELETE_SELECTION", () => {
 describe("CLEAR_MOLECULE", () => {
   it("resets to a fresh seed and clears selection", () => {
     let state = createInitialState();
-    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId, angle: 0 });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
     state = editorReducer(state, { type: "SELECT_ATOM", atomId: "1" });
     state = editorReducer(state, { type: "CLEAR_MOLECULE" });
 

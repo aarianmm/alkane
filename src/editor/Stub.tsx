@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Stub as StubGeometry } from "../layout/geometry";
+import type { GrowthTarget } from "../layout/geometry";
 
 /** Invisible hit area, large enough for touch/stylus per the requirements doc. */
 const HIT_RADIUS = 14;
@@ -7,8 +7,8 @@ const DOT_RADIUS = 3;
 const DOT_RADIUS_HOVER = 4.5;
 
 interface StubViewProps {
-  stub: StubGeometry;
-  onActivate: (atomId: string, angle: number) => void;
+  stub: GrowthTarget;
+  onActivate: (atomId: string) => void;
 }
 
 export function StubView({ stub, onActivate }: StubViewProps) {
@@ -18,7 +18,7 @@ export function StubView({ stub, onActivate }: StubViewProps) {
     <g
       onPointerDown={(event) => {
         event.stopPropagation();
-        onActivate(stub.atomId, stub.angle);
+        onActivate(stub.atomId);
       }}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}

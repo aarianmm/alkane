@@ -9,8 +9,8 @@ describe("graphToApiAtoms", () => {
     // Organic-Namer-Engine/examples/ethanol.json, whose C-C-O backbone is
     // atoms 0/1/7 with the rest filled by implicit H the same way the API does.
     let graph = createSeedGraph();
-    graph = addAtomFromStub(graph, graph.rootId, 0, "C", 1); // "1"
-    graph = addAtomFromStub(graph, "1", 0, "O", 1); // "2"
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1"
+    graph = addAtomFromStub(graph, "1", "O", 1); // "2"
 
     expect(graphToApiAtoms(graph)).toEqual([
       { element: "C", bonds: [{ to: 1, order: 1 }] },
@@ -21,7 +21,7 @@ describe("graphToApiAtoms", () => {
 
   it("keeps bonds symmetric on both sides, matching the engine's own example format", () => {
     let graph = createSeedGraph();
-    graph = addAtomFromStub(graph, graph.rootId, 0, "C", 2); // C=C
+    graph = addAtomFromStub(graph, graph.rootId, "C", 2); // C=C
 
     const atoms = graphToApiAtoms(graph);
     expect(atoms[0].bonds).toEqual([{ to: 1, order: 2 }]);
@@ -32,7 +32,7 @@ describe("graphToApiAtoms", () => {
     let graph = createSeedGraph();
     for (let i = 0; i < 5; i++) {
       const parent = i === 0 ? graph.rootId : String(i);
-      graph = addAtomFromStub(graph, parent, 0, "C", 1);
+      graph = addAtomFromStub(graph, parent, "C", 1);
     }
     graph = closeRingBond(graph, "5", graph.rootId, 2);
     // Alternate 1,2,1,2,1,2 around the ring (Kekulé benzene).

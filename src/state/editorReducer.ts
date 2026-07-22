@@ -6,6 +6,7 @@ import {
   setAtomElement,
   setBondOrder,
 } from "../graph/mutations";
+import { DEFAULT_STYLE, type StyleId } from "../styles";
 
 export type Selection =
   | { kind: "atom"; atomId: string }
@@ -15,6 +16,8 @@ export type Selection =
 export interface EditorState {
   graph: MoleculeGraph;
   selection: Selection;
+  /** Which of Displayed/Structural/Skeletal renders the graph. No switcher UI yet — only "displayed" is implemented. */
+  style: StyleId;
   /** The element/bond-order that the next stub click will place. */
   tool: {
     element: Element;
@@ -26,12 +29,13 @@ export function createInitialState(): EditorState {
   return {
     graph: createSeedGraph(),
     selection: null,
+    style: DEFAULT_STYLE,
     tool: { element: "C", bondOrder: 1 },
   };
 }
 
 export type EditorAction =
-  | { type: "GROW_ATOM"; atomId: string; angle: number }
+  | { type: "GROW_ATOM"; atomId: string }
   | { type: "SET_TOOL_ELEMENT"; element: Element }
   | { type: "SET_TOOL_BOND_ORDER"; bondOrder: BondOrder }
   | { type: "SELECT_ATOM"; atomId: string }
@@ -47,13 +51,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case "GROW_ATOM":
       return {
         ...state,
-        graph: addAtomFromStub(
-          state.graph,
-          action.atomId,
-          action.angle,
-          state.tool.element,
-          state.tool.bondOrder,
-        ),
+        graph: addAtomFromStub(state.graph, action.atomId, state.tool.element, state.tool.bondOrder),
       };
 
     case "SET_TOOL_ELEMENT":
