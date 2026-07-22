@@ -108,6 +108,19 @@ export function computeAngleIns(graph: MoleculeGraph, style: RenderStyle): Map<s
   return angleIns;
 }
 
+/**
+ * Per atom, the direction (degrees) of every tree bond leaving it — the
+ * parent bond plus each child bond. Label rules that depend on where bonds
+ * exit (Structural and Skeletal's H3C- vs -CH3 side rule) consume this. Ring-
+ * closing bonds excluded until the ring stage.
+ */
+export function computeBondAngles(graph: MoleculeGraph, style: RenderStyle): Map<string, number[]> {
+  const geometry = computeAtomGeometry(graph, style);
+  const map = new Map<string, number[]>();
+  for (const atom of graph.atoms) map.set(atom.id, heavyBondAngles(graph, atom.id, geometry));
+  return map;
+}
+
 export interface SlotCandidate {
   slot: number;
   angle: number;
@@ -225,6 +238,8 @@ export function computeGrowthTargets(graph: MoleculeGraph, style: RenderStyle): 
   const targets: GrowthTarget[] = [];
 
   for (const atom of graph.atoms) {
+    if (openSlotCount(atom) === 0) continue; // valency exhausted — nothing can grow here in any style
+
     const used = usedSlots.get(atom.id) ?? new Set<number>();
     const candidates = candidateSlotAngles(graph, style, atom.id, geometry).filter((c) => !used.has(c.slot));
     if (candidates.length === 0) continue;

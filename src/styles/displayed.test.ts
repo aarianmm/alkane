@@ -54,7 +54,7 @@ describe("displayed.childAngle — non-root", () => {
 
 describe("displayed.label", () => {
   it("labels every atom with its bare element symbol, never bundling hydrogens", () => {
-    const spec = displayed.label({ id: "0", element: "C", bonds: [] }, { hydrogenCount: 3, angleIn: null });
+    const spec = displayed.label({ id: "0", element: "C", bonds: [] }, { hydrogenCount: 3, angleIn: null, bondAngles: [] });
     expect(spec).toEqual({ main: "C", hydrogenCount: 0, hydrogenSide: "after" });
   });
 });

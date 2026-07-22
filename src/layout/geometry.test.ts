@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createSeedGraph } from "../graph/types";
 import { addAtomFromStub } from "../graph/mutations";
 import { displayed } from "../styles/displayed";
+import { structural } from "../styles/structural";
 import { BOND_LENGTH, computeGrowthTargets, layoutFromRoot } from "./geometry";
 
 function closeTo(actual: number, expected: number) {
@@ -121,5 +122,22 @@ describe("computeGrowthTargets", () => {
     }
     const targets = computeGrowthTargets(graph, displayed).filter((t) => t.atomId === graph.rootId);
     expect(targets).toHaveLength(0);
+  });
+
+  it("offers no growth target once valency is exhausted by bond order, even with a geometric slot still free (a style with no explicit-H guard, e.g. Structural)", () => {
+    // Root carbon: a triple bond (uses 3 of 4 valency, 1 geometric slot) plus
+    // a single bond (uses the remaining 1 valency, a 2nd geometric slot). All
+    // 4 valency is spent, but only 2 of the root's 4 geometric slots are
+    // occupied — slots 3 and 4 are still geometrically free, and without the
+    // valency guard a non-explicit-H style would wrongly offer them.
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 3); // "1", slot 1
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "2", slot 2
+
+    const structuralTargets = computeGrowthTargets(graph, structural).filter((t) => t.atomId === graph.rootId);
+    expect(structuralTargets).toHaveLength(0);
+
+    const displayedTargets = computeGrowthTargets(graph, displayed).filter((t) => t.atomId === graph.rootId);
+    expect(displayedTargets).toHaveLength(0);
   });
 });

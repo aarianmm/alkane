@@ -26,6 +26,13 @@ export interface LabelContext {
   hydrogenCount: number;
   /** Direction from this atom's parent to this atom. Null only at the root. */
   angleIn: number | null;
+  /**
+   * Directions (degrees, SVG y-down: 0 = east, 90 = down) of every tree bond
+   * leaving this atom — the parent bond and each child bond alike. Structural
+   * and Skeletal's hydrogen-side rule reads these. Ring-closing bonds are
+   * excluded (none exist until the ring stage; revisit there).
+   */
+  bondAngles: number[];
 }
 
 export interface RenderStyle {
