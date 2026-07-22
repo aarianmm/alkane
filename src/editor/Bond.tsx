@@ -1,8 +1,7 @@
 import type { BondOrder } from "../graph/types";
 import type { Point } from "../layout/geometry";
-
-/** How far a line is shortened from an endpoint that renders a visible label. */
-const LABEL_CLIP = 11;
+import type { LabelSpec } from "../styles/types";
+import { clipDistance } from "./labelMetrics";
 
 /** Spacing between the parallel lines of a double/triple bond. */
 const PARALLEL_OFFSET = 3.2;
@@ -17,8 +16,8 @@ interface BondViewProps {
   from: Point;
   to: Point;
   order: BondOrder;
-  showFromLabel: boolean;
-  showToLabel: boolean;
+  fromLabel: LabelSpec | null;
+  toLabel: LabelSpec | null;
   isSelected: boolean;
   onActivate: () => void;
 }
@@ -34,15 +33,7 @@ function offsetsForOrder(order: BondOrder): number[] {
   }
 }
 
-export function BondView({
-  from,
-  to,
-  order,
-  showFromLabel,
-  showToLabel,
-  isSelected,
-  onActivate,
-}: BondViewProps) {
+export function BondView({ from, to, order, fromLabel, toLabel, isSelected, onActivate }: BondViewProps) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const length = Math.hypot(dx, dy) || 1;
@@ -52,14 +43,11 @@ export function BondView({
   const px = -uy;
   const py = ux;
 
-  const start = {
-    x: from.x + (showFromLabel ? ux * LABEL_CLIP : 0),
-    y: from.y + (showFromLabel ? uy * LABEL_CLIP : 0),
-  };
-  const end = {
-    x: to.x - (showToLabel ? ux * LABEL_CLIP : 0),
-    y: to.y - (showToLabel ? uy * LABEL_CLIP : 0),
-  };
+  const fromClip = clipDistance(fromLabel, ux, uy);
+  const toClip = clipDistance(toLabel, ux, uy);
+
+  const start = { x: from.x + ux * fromClip, y: from.y + uy * fromClip };
+  const end = { x: to.x - ux * toClip, y: to.y - uy * toClip };
 
   return (
     <g

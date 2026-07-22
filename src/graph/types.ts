@@ -39,11 +39,16 @@ export interface Atom {
    */
   parentId?: string;
   /**
-   * Degrees, the direction from parent to this atom chosen at creation time.
-   * Undefined only for the root/seed atom. This is what makes layout
-   * incremental — see layoutFromRoot in the layout module.
+   * Which of the parent's attachment positions this atom occupies — an
+   * abstract ordinal, not an angle. Slot 0 (the parent bond itself) is
+   * implicit and never stored; slot 1 is the primary continuation a chain
+   * grows through; slots 2+ are branches. Assigned automatically at
+   * creation (lowest unused first) and never reassigned, which is what
+   * makes layout incremental. Each render style maps slot -> angle
+   * independently (see src/styles), so the same graph renders differently
+   * per style. Undefined only for the root/seed atom.
    */
-  angleFromParent?: number;
+  slotFromParent?: number;
 }
 
 export interface MoleculeGraph {

@@ -2,6 +2,7 @@ import { useEffect, useReducer } from "react";
 import { MoleculeEditor } from "./editor/MoleculeEditor";
 import { Toolbar } from "./editor/Toolbar";
 import { bondOrderBetween, findAtomById } from "./graph/queries";
+import { getStyle } from "./styles";
 import { createInitialState, editorReducer } from "./state/editorReducer";
 
 function App() {
@@ -34,6 +35,7 @@ function App() {
       : state.tool.bondOrder;
 
   const canDelete = selection !== null && !(selection.kind === "atom" && selection.atomId === state.graph.rootId);
+  const style = getStyle(state.style);
 
   return (
     <div
@@ -70,8 +72,9 @@ function App() {
       <div style={{ width: "min(90vw, 480px)", height: "min(90vw, 480px)", flex: 1 }}>
         <MoleculeEditor
           graph={state.graph}
+          style={style}
           selection={selection}
-          onStubActivate={(atomId, angle) => dispatch({ type: "GROW_ATOM", atomId, angle })}
+          onStubActivate={(atomId) => dispatch({ type: "GROW_ATOM", atomId })}
           onAtomActivate={(atomId) => dispatch({ type: "SELECT_ATOM", atomId })}
           onBondActivate={(atomIdA, atomIdB) => dispatch({ type: "SELECT_BOND", atomIdA, atomIdB })}
           onCanvasActivate={() => dispatch({ type: "CLEAR_SELECTION" })}

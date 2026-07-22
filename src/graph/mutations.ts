@@ -30,11 +30,20 @@ function reachableFrom(atoms: Atom[], rootId: string): Set<string> {
   return seen;
 }
 
+/** The lowest slot ordinal not already occupied by one of parentId's children. */
+function nextFreeSlot(graph: MoleculeGraph, parentId: string): number {
+  const used = new Set(
+    graph.atoms.filter((a) => a.parentId === parentId).map((a) => a.slotFromParent!),
+  );
+  let slot = 1;
+  while (used.has(slot)) slot++;
+  return slot;
+}
+
 /** Grows a new atom off an existing atom's open stub — the core drawing gesture. */
 export function addAtomFromStub(
   graph: MoleculeGraph,
   parentId: string,
-  angleFromParent: number,
   element: Element,
   bondOrder: BondOrder,
 ): MoleculeGraph {
@@ -45,7 +54,7 @@ export function addAtomFromStub(
     element,
     bonds: [{ to: parentId, order: bondOrder }],
     parentId,
-    angleFromParent,
+    slotFromParent: nextFreeSlot(graph, parentId),
   };
 
   const withParentBond = replaceAtom(graph, parentId, (parent) => ({
