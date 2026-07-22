@@ -1,0 +1,16 @@
+.name {
+  min-height: 1.75rem;
+  font-family: system-ui, sans-serif;
+  font-size: 1.25rem;
+  color: #1a1d21;
+  text-align: center;
+}
+
+.loading {
+  color: #9ba1ab;
+}
+
+.error {
+  font-size: 0.95rem;
+  color: #b42318;
+}

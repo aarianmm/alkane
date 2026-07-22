@@ -1,5 +1,7 @@
 import { useEffect, useReducer } from "react";
+import { useMoleculeName } from "./api/useMoleculeName";
 import { MoleculeEditor } from "./editor/MoleculeEditor";
+import { NameDisplay } from "./editor/NameDisplay";
 import { Toolbar } from "./editor/Toolbar";
 import { bondOrderBetween, findAtomById } from "./graph/queries";
 import { getStyle } from "./styles";
@@ -8,6 +10,7 @@ import { createInitialState, editorReducer } from "./state/editorReducer";
 function App() {
   const [state, dispatch] = useReducer(editorReducer, undefined, createInitialState);
   const { selection } = state;
+  const nameStatus = useMoleculeName(state.graph);
 
   useEffect(() => {
     if (selection === null) return;
@@ -96,6 +99,7 @@ function App() {
           onCanvasActivate={() => dispatch({ type: "CLEAR_SELECTION" })}
         />
       </div>
+      <NameDisplay status={nameStatus} />
     </div>
   );
 }
