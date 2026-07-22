@@ -48,14 +48,26 @@ describe("layoutFromRoot", () => {
     closeTo(branch.y, BOND_LENGTH);
   });
 
-  it("positions branches independently off the same root", () => {
+  it("positions a root's second bond to the west, keeping it a horizontal backbone rather than jogging vertical", () => {
     let graph = createSeedGraph();
-    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1", root slot 1: 0°
-    graph = addAtomFromStub(graph, graph.rootId, "O", 1); // "2", root slot 2: 90°
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1", root slot 1: east
+    graph = addAtomFromStub(graph, graph.rootId, "O", 1); // "2", root slot 2: west
 
     const positions = layoutFromRoot(graph, displayed);
     expect(positions.get("1")).not.toEqual(positions.get("2"));
-    closeTo(positions.get("2")!.y, BOND_LENGTH);
+    closeTo(positions.get("2")!.x, -BOND_LENGTH);
+    closeTo(positions.get("2")!.y, 0);
+  });
+
+  it("only branches vertically off the root once both horizontal directions are taken", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1", root slot 1: east
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "2", root slot 2: west
+    graph = addAtomFromStub(graph, graph.rootId, "O", 1); // "3", root slot 3: south (vertical branch)
+
+    const positions = layoutFromRoot(graph, displayed);
+    closeTo(positions.get("3")!.x, 0);
+    closeTo(positions.get("3")!.y, BOND_LENGTH);
   });
 
   it("bonds straight through a divalent atom (ether case) — its only non-parent slot is the continuation", () => {

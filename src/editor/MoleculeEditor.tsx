@@ -6,6 +6,7 @@ import {
   computeGrowthTargets,
   computeHydrogenPlacements,
   layoutFromRoot,
+  pointAt,
   type Point,
 } from "../layout/geometry";
 import { computeViewBox } from "../layout/viewBox";
@@ -68,6 +69,9 @@ function collectBonds(
   return bonds;
 }
 
+/** How far past the growable hydrogen its always-visible stub dot sits, in the direction growth would continue. */
+const GROWTH_STUB_OFFSET = 14;
+
 function isSelectedAtom(selection: Selection, atomId: string): boolean {
   return selection?.kind === "atom" && selection.atomId === atomId;
 }
@@ -114,10 +118,15 @@ export function MoleculeEditor({
   const showStubs = !style.rendersExplicitHydrogens;
   const stubs = showStubs ? growthTargets : [];
 
+  const growthStubPositions = new Map(
+    growthTargets.map((t) => [t.atomId, pointAt(t.position, t.angle, GROWTH_STUB_OFFSET)]),
+  );
+
   const viewBox = computeViewBox([
     ...positions.values(),
     ...growthTargets.map((t) => t.position),
     ...hydrogens.map((h) => h.position),
+    ...growthStubPositions.values(),
   ]);
 
   return (
@@ -161,6 +170,7 @@ export function MoleculeEditor({
             key={`h-${hydrogen.atomId}-${hydrogen.angle}`}
             position={hydrogen.position}
             isGrowthTarget={target !== undefined}
+            stubPosition={target ? growthStubPositions.get(hydrogen.atomId) : undefined}
             onActivate={() => onStubActivate(hydrogen.atomId)}
           />
         );

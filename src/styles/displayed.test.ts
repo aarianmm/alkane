@@ -2,19 +2,19 @@ import { describe, expect, it } from "vitest";
 import { displayed } from "./displayed";
 
 describe("displayed.childAngle — root", () => {
-  it("spaces carbon's 4 slots 90° apart starting due east", () => {
+  it("carbon: east then west first, so a root with two real bonds still reads as one horizontal backbone — vertical branches only come after that", () => {
     const valency = 4;
     const angles = [1, 2, 3, 4].map((slot) => displayed.childAngle({ angleIn: null, grandAngleIn: null, slot, valency }));
-    expect(angles).toEqual([0, 90, 180, 270]);
+    expect(angles).toEqual([0, 180, 90, -90]);
   });
 
-  it("spaces nitrogen's 3 slots 120° apart starting due east", () => {
+  it("nitrogen: east then west first, then its one remaining slot branches off that axis", () => {
     const valency = 3;
     const angles = [1, 2, 3].map((slot) => displayed.childAngle({ angleIn: null, grandAngleIn: null, slot, valency }));
-    expect(angles).toEqual([0, 120, 240]);
+    expect(angles).toEqual([0, 180, 120]);
   });
 
-  it("spaces a divalent atom's 2 slots 180° apart", () => {
+  it("spaces a divalent atom's 2 slots 180° apart (already just east/west)", () => {
     const valency = 2;
     const angles = [1, 2].map((slot) => displayed.childAngle({ angleIn: null, grandAngleIn: null, slot, valency }));
     expect(angles).toEqual([0, 180]);
