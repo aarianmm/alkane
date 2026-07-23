@@ -195,6 +195,22 @@ export function deleteAtomSubtree(graph: MoleculeGraph, atomId: string): Molecul
 }
 
 /**
+ * The click-to-delete-mode step on a bond: drop its order by one, or sever it
+ * outright once it's already single. A triple bond becomes double, a double
+ * becomes single, and a single bond is removed via `deleteBond` (with its
+ * usual ring-reopen / branch-prune behavior).
+ */
+export function decrementBondOrder(graph: MoleculeGraph, atomIdA: string, atomIdB: string): MoleculeGraph {
+  const order = getAtom(graph, atomIdA).bonds.find((b) => b.to === atomIdB)?.order;
+  if (order === undefined) throw new Error(`No bond between ${atomIdA} and ${atomIdB}`);
+
+  if (order > 1) {
+    return setBondOrder(graph, atomIdA, atomIdB, (order - 1) as BondOrder);
+  }
+  return deleteBond(graph, atomIdA, atomIdB);
+}
+
+/**
  * Deletes a bond between two atoms. If it's a ring-closing bond, both atoms
  * stay reachable via the rest of the ring, so only the edge is removed
  * (reopening the ring into a chain). Otherwise it's a tree bond, and removing

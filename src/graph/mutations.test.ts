@@ -4,6 +4,7 @@ import {
   addAtomFromStub,
   addRing,
   closeRingBond,
+  decrementBondOrder,
   deleteAtomSubtree,
   deleteBond,
   setAtomElement,
@@ -277,6 +278,57 @@ describe("addRing", () => {
     graph = addAtomFromStub(graph, graph.rootId, "C", 1);
     graph = addAtomFromStub(graph, graph.rootId, "C", 1); // root down to 1 open slot
     expect(() => addRing(graph, graph.rootId, 6, false)).toThrow(); // needs 2
+  });
+});
+
+describe("decrementBondOrder", () => {
+  it("drops a triple bond to double", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 3); // "1"
+
+    graph = decrementBondOrder(graph, graph.rootId, "1");
+
+    expect(bondOrderBetween(graph, graph.rootId, "1")).toBe(2);
+    expect(graph.atoms).toHaveLength(2);
+  });
+
+  it("drops a double bond to single", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 2); // "1"
+
+    graph = decrementBondOrder(graph, graph.rootId, "1");
+
+    expect(bondOrderBetween(graph, graph.rootId, "1")).toBe(1);
+    expect(graph.atoms).toHaveLength(2);
+  });
+
+  it("severs a single bond, pruning the disconnected side", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1"
+    graph = addAtomFromStub(graph, "1", "C", 1); // "2"
+
+    graph = decrementBondOrder(graph, graph.rootId, "1");
+
+    expect(graph.atoms.map((a) => a.id)).toEqual([graph.rootId]);
+  });
+
+  it("reopens a ring by severing just the closing bond, without pruning any atom", () => {
+    let graph = createSeedGraph();
+    for (let i = 0; i < 5; i++) {
+      const parent = i === 0 ? graph.rootId : String(i);
+      graph = addAtomFromStub(graph, parent, "C", 1);
+    }
+    graph = closeRingBond(graph, "5", graph.rootId, 1);
+
+    graph = decrementBondOrder(graph, "5", graph.rootId);
+
+    expect(graph.atoms).toHaveLength(6);
+    expect(hasRing(graph)).toBe(false);
+  });
+
+  it("throws when there is no such bond", () => {
+    const graph = createSeedGraph();
+    expect(() => decrementBondOrder(graph, graph.rootId, "does-not-exist")).toThrow();
   });
 });
 
