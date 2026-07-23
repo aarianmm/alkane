@@ -234,9 +234,8 @@ export function MoleculeEditor({
           position={positions.get(atom.id)!}
           label={labels.get(atom.id) ?? null}
           isSelected={isSelectedAtom(selection, atom.id)}
-          // The seed can't be deleted, so it never previews the red
-          // about-to-delete hover even while delete mode is on.
-          deleteMode={deleteMode && atom.id !== graph.rootId}
+          deleteMode={deleteMode}
+          deletable={atom.id !== graph.rootId}
           onActivate={onAtomActivate}
         />
       ))}
