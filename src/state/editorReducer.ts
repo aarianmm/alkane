@@ -9,8 +9,9 @@ import {
   retypeAtomWithPrune,
   setAtomElement,
   setBondOrder,
+  setBondOrderWithPrune,
 } from "../graph/mutations";
-import { canInsertRing, findAtomById, usedValency } from "../graph/queries";
+import { bondOrderBetween, canInsertRing, findAtomById, usedValency } from "../graph/queries";
 import { DEFAULT_STYLE, type StyleId } from "../styles";
 
 export type Selection =
@@ -67,6 +68,7 @@ export type EditorAction =
   | { type: "SET_TOOL_BOND_ORDER"; bondOrder: BondOrder }
   | { type: "SELECT_ATOM"; atomId: string }
   | { type: "SELECT_BOND"; atomIdA: string; atomIdB: string }
+  | { type: "REPLACE_BOND"; atomIdA: string; atomIdB: string }
   | { type: "CLEAR_SELECTION" }
   | { type: "RETYPE_SELECTED_ATOM"; element: Element }
   | { type: "SET_SELECTED_BOND_ORDER"; order: BondOrder }
@@ -156,6 +158,27 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
     case "SELECT_BOND":
       return { ...state, selection: { kind: "bond", atomIdA: action.atomIdA, atomIdB: action.atomIdB } };
+
+    // Clicking an existing bond applies whatever bond order is currently
+    // armed on the toolbar to it directly -- the same "click applies the
+    // tool" shape as REPLACE_ATOM, rather than a separate select-then-edit
+    // step. Valency is kept legal via setBondOrderWithPrune, which prunes a
+    // branch on an endpoint only if raising the order needs more room than
+    // its open (implicit-hydrogen) slots provide.
+    case "REPLACE_BOND": {
+      const { atomIdA, atomIdB } = action;
+      const order = bondOrderBetween(state.graph, atomIdA, atomIdB);
+      if (order === undefined) return state; // no such bond
+
+      if (order === state.tool.bondOrder) {
+        // Already the armed order -- nothing to mutate, just select it.
+        return { ...state, selection: { kind: "bond", atomIdA, atomIdB } };
+      }
+
+      const next = setBondOrderWithPrune(state.graph, atomIdA, atomIdB, state.tool.bondOrder);
+      if (next === state.graph) return state; // degenerate: can't fit without cutting the edited bond
+      return withMutation(state, next, { selection: { kind: "bond", atomIdA, atomIdB } });
+    }
 
     case "CLEAR_SELECTION":
       return state.selection === null ? state : { ...state, selection: null };

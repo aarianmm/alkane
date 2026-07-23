@@ -123,7 +123,7 @@ function App() {
           }
           onBondActivate={(atomIdA, atomIdB) =>
             dispatch(
-              deleteMode ? { type: "DELETE_BOND_AT", atomIdA, atomIdB } : { type: "SELECT_BOND", atomIdA, atomIdB },
+              deleteMode ? { type: "DELETE_BOND_AT", atomIdA, atomIdB } : { type: "REPLACE_BOND", atomIdA, atomIdB },
             )
           }
           onCanvasActivate={() => {
