@@ -117,9 +117,10 @@ function App() {
           style={style}
           selection={selection}
           deleteMode={deleteMode}
+          armedElement={state.tool.element}
           onStubActivate={(atomId) => dispatch({ type: "GROW_ATOM", atomId })}
           onAtomActivate={(atomId) =>
-            dispatch(deleteMode ? { type: "DELETE_ATOM_AT", atomId } : { type: "SELECT_ATOM", atomId })
+            dispatch(deleteMode ? { type: "DELETE_ATOM_AT", atomId } : { type: "REPLACE_ATOM", atomId })
           }
           onBondActivate={(atomIdA, atomIdB) =>
             dispatch(
