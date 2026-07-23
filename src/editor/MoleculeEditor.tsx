@@ -22,6 +22,8 @@ interface MoleculeEditorProps {
   graph: MoleculeGraph;
   style: RenderStyle;
   selection: Selection;
+  /** While on, hovering an atom/bond previews red (about to be deleted/trimmed) instead of the normal selection blue. */
+  deleteMode: boolean;
   onStubActivate: (atomId: string) => void;
   onAtomActivate: (atomId: string) => void;
   onBondActivate: (atomIdA: string, atomIdB: string) => void;
@@ -106,6 +108,7 @@ export function MoleculeEditor({
   graph,
   style,
   selection,
+  deleteMode,
   onStubActivate,
   onAtomActivate,
   onBondActivate,
@@ -180,6 +183,7 @@ export function MoleculeEditor({
           fromLabel={bond.fromLabel}
           toLabel={bond.toLabel}
           isSelected={isSelectedBond(selection, bond.atomIdA, bond.atomIdB)}
+          deleteMode={deleteMode}
           onActivate={() => onBondActivate(bond.atomIdA, bond.atomIdB)}
         />
       ))}
@@ -202,6 +206,7 @@ export function MoleculeEditor({
           fromLabel={labels.get(hydrogen.atomId) ?? null}
           toLabel={{ main: "H", hydrogenCount: 0, hydrogenSide: "after" }}
           isSelected={false}
+          deleteMode={false}
           onActivate={() => {}}
         />
       ))}
@@ -229,6 +234,9 @@ export function MoleculeEditor({
           position={positions.get(atom.id)!}
           label={labels.get(atom.id) ?? null}
           isSelected={isSelectedAtom(selection, atom.id)}
+          // The seed can't be deleted, so it never previews the red
+          // about-to-delete hover even while delete mode is on.
+          deleteMode={deleteMode && atom.id !== graph.rootId}
           onActivate={onAtomActivate}
         />
       ))}
