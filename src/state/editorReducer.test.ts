@@ -267,7 +267,7 @@ describe("delete mode", () => {
     expect(after).toBe(state);
   });
 
-  it("DELETE_ATOM_AT prunes the clicked atom's subtree and stays in delete mode", () => {
+  it("DELETE_ATOM_AT prunes the clicked atom's subtree and exits delete mode", () => {
     let state = createInitialState();
     state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
     state = editorReducer(state, { type: "TOGGLE_DELETE_MODE" });
@@ -275,7 +275,7 @@ describe("delete mode", () => {
     state = editorReducer(state, { type: "DELETE_ATOM_AT", atomId: "1" });
 
     expect(state.graph.atoms).toHaveLength(1);
-    expect(state.deleteMode).toBe(true);
+    expect(state.deleteMode).toBe(false);
   });
 
   it("DELETE_ATOM_AT refuses to delete the seed atom", () => {
@@ -288,7 +288,7 @@ describe("delete mode", () => {
     expect(after.deleteMode).toBe(true);
   });
 
-  it("DELETE_BOND_AT decrements a multi-order bond, then severs it once single, staying in delete mode throughout", () => {
+  it("DELETE_BOND_AT decrements a multi-order bond without exiting delete mode, then severs it once single and exits", () => {
     let state = createInitialState();
     state = editorReducer(state, { type: "SET_TOOL_BOND_ORDER", bondOrder: 3 });
     state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1", triple-bonded
@@ -297,14 +297,16 @@ describe("delete mode", () => {
     state = editorReducer(state, { type: "DELETE_BOND_AT", atomIdA: state.graph.rootId, atomIdB: "1" });
     expect(state.graph.atoms[0].bonds[0].order).toBe(2);
     expect(state.graph.atoms).toHaveLength(2);
+    expect(state.deleteMode).toBe(true);
 
     state = editorReducer(state, { type: "DELETE_BOND_AT", atomIdA: state.graph.rootId, atomIdB: "1" });
     expect(state.graph.atoms[0].bonds[0].order).toBe(1);
     expect(state.graph.atoms).toHaveLength(2);
+    expect(state.deleteMode).toBe(true);
 
     state = editorReducer(state, { type: "DELETE_BOND_AT", atomIdA: state.graph.rootId, atomIdB: "1" });
     expect(state.graph.atoms).toHaveLength(1);
-    expect(state.deleteMode).toBe(true);
+    expect(state.deleteMode).toBe(false);
   });
 });
 
