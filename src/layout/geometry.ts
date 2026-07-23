@@ -48,16 +48,29 @@ function childrenByParent(graph: MoleculeGraph): Map<string, Atom[]> {
   return map;
 }
 
-/** The lowest slot ordinal not already occupied by one of parentId's children, per atom. */
-function usedSlotsByParent(graph: MoleculeGraph): Map<string, Set<number>> {
-  const map = new Map<string, Set<number>>();
-  for (const atom of graph.atoms) {
-    if (atom.parentId === undefined) continue;
-    const slots = map.get(atom.parentId) ?? new Set<number>();
-    slots.add(atom.slotFromParent!);
-    map.set(atom.parentId, slots);
+/** The number of an atom's children that are themselves ring members. */
+function ringMemberChildCount(children: Atom[] | undefined, ringSet: Set<string>): number {
+  return (children ?? []).filter((c) => ringSet.has(c.id)).length;
+}
+
+/**
+ * Slots already taken by an atom's children. For a chain atom that's just
+ * each child's stored slot. For a ring atom, only non-ring substituent
+ * children take fan slots, remapped past the ring bonds (see fanSlot rule)
+ * — that's what leaves a plain ring CH2 both of its hydrogen slots free.
+ */
+function occupiedSlots(graph: MoleculeGraph, atomId: string, ring: string[] | null): Set<number> {
+  const children = childrenByParent(graph).get(atomId) ?? [];
+  if (ring !== null && ring.includes(atomId)) {
+    const ringSet = new Set(ring);
+    const ringKids = ringMemberChildCount(children, ringSet);
+    const used = new Set<number>();
+    for (const c of children) {
+      if (!ringSet.has(c.id)) used.add(c.slotFromParent! - ringKids);
+    }
+    return used;
   }
-  return map;
+  return new Set(children.map((c) => c.slotFromParent!));
 }
 
 /**
@@ -131,7 +144,12 @@ function computeAtomGeometry(graph: MoleculeGraph, style: RenderStyle): Map<stri
         angle = angleBetween(current.position, position);
       } else if (ringOutwardAngles.has(currentId)) {
         const slotCount = Math.max(0, valency - 2);
-        angle = ringSubstituentAngle(ringOutwardAngles.get(currentId)!, child.slotFromParent!, slotCount);
+        const ringKids = ringMemberChildCount(children.get(currentId), new Set(ring!));
+        angle = ringSubstituentAngle(
+          ringOutwardAngles.get(currentId)!,
+          child.slotFromParent! - ringKids,
+          slotCount,
+        );
         position = pointAt(current.position, angle, BOND_LENGTH);
       } else {
         angle = style.childAngle({
@@ -270,7 +288,7 @@ function hydrogenAnglesForAtom(
   geometry: Map<string, AtomGeometry>,
 ): number[] {
   const atom = graph.atoms.find((a) => a.id === atomId)!;
-  const used = usedSlotsByParent(graph).get(atomId) ?? new Set<number>();
+  const used = occupiedSlots(graph, atomId, findRing(graph));
   const freeAngles = candidateSlotAngles(graph, style, atomId, geometry)
     .filter((c) => !used.has(c.slot))
     .map((c) => c.angle);
@@ -318,13 +336,13 @@ export interface GrowthTarget {
  */
 export function computeGrowthTargets(graph: MoleculeGraph, style: RenderStyle): GrowthTarget[] {
   const geometry = computeAtomGeometry(graph, style);
-  const usedSlots = usedSlotsByParent(graph);
+  const ring = findRing(graph);
   const targets: GrowthTarget[] = [];
 
   for (const atom of graph.atoms) {
     if (openSlotCount(atom) === 0) continue; // valency exhausted — nothing can grow here in any style
 
-    const used = usedSlots.get(atom.id) ?? new Set<number>();
+    const used = occupiedSlots(graph, atom.id, ring);
     const candidates = candidateSlotAngles(graph, style, atom.id, geometry).filter((c) => !used.has(c.slot));
     if (candidates.length === 0) continue;
 

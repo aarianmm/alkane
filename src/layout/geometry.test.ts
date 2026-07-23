@@ -5,7 +5,15 @@ import { findRing } from "../graph/queries";
 import { displayed } from "../styles/displayed";
 import { structural } from "../styles/structural";
 import { skeletal } from "../styles/skeletal";
-import { BOND_LENGTH, computeBondAngles, computeGrowthTargets, layoutFromRoot } from "./geometry";
+import { angularDistance } from "./hydrogens";
+import { angleBetween } from "./rings";
+import {
+  BOND_LENGTH,
+  computeBondAngles,
+  computeGrowthTargets,
+  computeHydrogenPlacements,
+  layoutFromRoot,
+} from "./geometry";
 
 function closeTo(actual: number, expected: number) {
   expect(actual).toBeCloseTo(expected, 6);
@@ -139,10 +147,49 @@ describe("ring layout", () => {
     }
   });
 
-  it("gives every non-aromatic ring CH2 two symmetric hydrogens, in Displayed", () => {
-    const graph = addRing(createSeedGraph(), "0", 6, false);
-    const placements = layoutFromRoot(graph, displayed); // sanity: layout succeeds
-    expect(placements.size).toBe(6);
+  it("gives a non-anchor ring CH2 two hydrogens, symmetric about its outward radial", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1": gives the ring anchor a parent bond
+    graph = addRing(graph, "1", 6, false);
+    const ring = findRing(graph)!;
+    const positions = layoutFromRoot(graph, displayed);
+
+    const middle = ring[2]; // a plain ring carbon: no parent bond, no substituents
+    const hydrogens = computeHydrogenPlacements(graph, displayed).filter((p) => p.atomId === middle);
+    expect(hydrogens).toHaveLength(2);
+
+    const center = {
+      x: ring.reduce((s, id) => s + positions.get(id)!.x, 0) / ring.length,
+      y: ring.reduce((s, id) => s + positions.get(id)!.y, 0) / ring.length,
+    };
+    const outward = angleBetween(center, positions.get(middle)!);
+
+    closeTo(angularDistance(hydrogens[0].angle, hydrogens[1].angle), 90);
+    for (const h of hydrogens) closeTo(angularDistance(h.angle, outward), 45);
+  });
+
+  it("gives the ring anchor exactly one hydrogen when it also carries a parent bond", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1": gives the ring anchor a parent bond
+    graph = addRing(graph, "1", 6, false);
+    const ring = findRing(graph)!;
+
+    const hydrogens = computeHydrogenPlacements(graph, displayed).filter((p) => p.atomId === ring[0]);
+    expect(hydrogens).toHaveLength(1);
+  });
+
+  it("gives a ring carbon with a grown methyl exactly one hydrogen, not coincident with the methyl", () => {
+    let graph = addRing(createSeedGraph(), "0", 6, false);
+    const ring = findRing(graph)!;
+    graph = addAtomFromStub(graph, ring[1], "C", 1); // methyl substituent off a ring carbon
+    const substituentId = graph.atoms.find((a) => a.parentId === ring[1])!.id;
+
+    const hydrogens = computeHydrogenPlacements(graph, displayed).filter((p) => p.atomId === ring[1]);
+    expect(hydrogens).toHaveLength(1);
+
+    const positions = layoutFromRoot(graph, displayed);
+    const methylAngle = angleBetween(positions.get(ring[1])!, positions.get(substituentId)!);
+    expect(angularDistance(hydrogens[0].angle, methylAngle)).toBeGreaterThan(1);
   });
 
   it("keeps a substituent grown off a ring atom at BOND_LENGTH, outward from the ring", () => {
