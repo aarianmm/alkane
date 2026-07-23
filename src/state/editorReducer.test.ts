@@ -310,6 +310,99 @@ describe("delete mode", () => {
   });
 });
 
+describe("REPLACE_ATOM", () => {
+  it("retypes the clicked atom to the armed tool element", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1", carbon
+    state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "O" });
+
+    state = editorReducer(state, { type: "REPLACE_ATOM", atomId: "1" });
+
+    expect(findAtomById(state.graph, "1")!.element).toBe("O");
+    expect(state.selection).toEqual({ kind: "atom", atomId: "1" });
+  });
+
+  it("prunes branches that don't fit the armed element's lower valency", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "2", off "1"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "3", off "1"
+    state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "O" }); // valency 2
+
+    state = editorReducer(state, { type: "REPLACE_ATOM", atomId: "1" });
+
+    const atom = findAtomById(state.graph, "1")!;
+    expect(atom.element).toBe("O");
+    expect(atom.bonds).toHaveLength(2); // parent + one surviving branch
+  });
+
+  it("is a single undo step even when it prunes multiple branches", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" });
+    state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "F" }); // valency 1
+    const beforeReplace = state.graph;
+
+    state = editorReducer(state, { type: "REPLACE_ATOM", atomId: "1" });
+    state = editorReducer(state, { type: "UNDO" });
+
+    expect(state.graph).toBe(beforeReplace);
+  });
+
+  it("doesn't record history when the atom already matches the armed element", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1", carbon
+    const before = state.graph;
+
+    state = editorReducer(state, { type: "REPLACE_ATOM", atomId: "1" }); // tool is still the default "C"
+
+    expect(state.graph).toBe(before);
+    expect(state.history.past).toHaveLength(1); // just the GROW_ATOM
+    expect(state.selection).toEqual({ kind: "atom", atomId: "1" });
+  });
+
+  it("replaces the clicked carbon with the armed ring", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+
+    state = editorReducer(state, { type: "REPLACE_ATOM", atomId: "1" });
+
+    const ring = findRing(state.graph)!;
+    expect(ring).toContain("1");
+    expect(state.selection).toBeNull();
+  });
+
+  it("prunes the anchor's branches to free room for the armed ring", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "2"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "3" -- "1" down to 1 open slot
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: true }); // needs 3 open
+
+    state = editorReducer(state, { type: "REPLACE_ATOM", atomId: "1" });
+
+    const ring = findRing(state.graph)!;
+    expect(ring).toContain("1");
+    expect(findAtomById(state.graph, "2")).toBeUndefined();
+    expect(findAtomById(state.graph, "3")).toBeUndefined();
+  });
+
+  it("stays armed and leaves the graph untouched when the clicked atom isn't a carbon", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "O" });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1", oxygen
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+    const before = state.graph;
+
+    state = editorReducer(state, { type: "REPLACE_ATOM", atomId: "1" });
+
+    expect(state.graph).toBe(before);
+    expect(state.selection).toEqual({ kind: "pendingRing", size: 6, aromatic: false });
+  });
+});
+
 describe("CLEAR_MOLECULE", () => {
   it("resets to a fresh seed and clears selection", () => {
     let state = createInitialState();
