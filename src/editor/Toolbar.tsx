@@ -31,7 +31,8 @@ interface ToolbarProps {
   /** The currently-armed ring, waiting for a stub click, or null if none is armed. */
   activeRing: { size: number; aromatic: boolean } | null;
   onSelectRing: (size: number, aromatic: boolean) => void;
-  canDelete: boolean;
+  /** Whether sticky click-to-delete mode is currently on -- shows the Delete button pressed. */
+  deleteMode: boolean;
   onDelete: () => void;
   onClear: () => void;
   canUndo: boolean;
@@ -51,7 +52,7 @@ export function Toolbar({
   canSelectRing,
   activeRing,
   onSelectRing,
-  canDelete,
+  deleteMode,
   onDelete,
   onClear,
   canUndo,
@@ -145,7 +146,17 @@ export function Toolbar({
         </button>
       </div>
       <div className={styles.group} aria-label="Editing">
-        <button type="button" className={styles.button} disabled={!canDelete} onClick={onDelete}>
+        <button
+          type="button"
+          className={`${styles.button} ${deleteMode ? styles.buttonDanger : ""}`}
+          aria-pressed={deleteMode}
+          onClick={onDelete}
+          title={
+            deleteMode
+              ? "Click an atom or bond to delete it (Esc to exit)"
+              : "Delete the current selection, or click to enter delete mode"
+          }
+        >
           Delete
         </button>
         <button type="button" className={styles.button} onClick={onClear}>

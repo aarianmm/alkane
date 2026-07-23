@@ -42,3 +42,9 @@
   background: #eaf1ff;
   color: #2563eb;
 }
+
+.buttonDanger {
+  border-color: #dc2626;
+  background: #fdeaea;
+  color: #dc2626;
+}
