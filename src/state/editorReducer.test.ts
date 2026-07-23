@@ -325,6 +325,93 @@ describe("REPLACE_ATOM", () => {
   });
 });
 
+describe("REPLACE_BOND", () => {
+  it("changes the clicked bond to the armed tool bond order", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
+    state = editorReducer(state, { type: "SET_TOOL_BOND_ORDER", bondOrder: 2 });
+
+    state = editorReducer(state, { type: "REPLACE_BOND", atomIdA: state.graph.rootId, atomIdB: "1" });
+
+    expect(findAtomById(state.graph, "1")!.bonds[0].order).toBe(2);
+    expect(state.selection).toEqual({ kind: "bond", atomIdA: state.graph.rootId, atomIdB: "1" });
+  });
+
+  it("prunes a branch that no longer fits an endpoint saturated by other bonds", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "2"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "3"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "4" -- "1" now fully saturated
+    state = editorReducer(state, { type: "SET_TOOL_BOND_ORDER", bondOrder: 2 });
+
+    state = editorReducer(state, { type: "REPLACE_BOND", atomIdA: state.graph.rootId, atomIdB: "1" });
+
+    const atom = findAtomById(state.graph, "1")!;
+    expect(atom.bonds.find((b) => b.to === state.graph.rootId)!.order).toBe(2);
+    expect(atom.bonds).toHaveLength(3); // parent + two surviving branches
+    expect(findAtomById(state.graph, "4")).toBeUndefined(); // highest-slot branch pruned
+  });
+
+  it("is a single undo step even when it prunes a branch", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "2"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "3"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "4"
+    state = editorReducer(state, { type: "SET_TOOL_BOND_ORDER", bondOrder: 2 });
+    const beforeReplace = state.graph;
+
+    state = editorReducer(state, { type: "REPLACE_BOND", atomIdA: state.graph.rootId, atomIdB: "1" });
+    state = editorReducer(state, { type: "UNDO" });
+
+    expect(state.graph).toBe(beforeReplace);
+  });
+
+  it("doesn't record history when the bond already matches the armed order", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
+    const before = state.graph;
+
+    state = editorReducer(state, { type: "REPLACE_BOND", atomIdA: state.graph.rootId, atomIdB: "1" }); // tool is still the default order 1
+
+    expect(state.graph).toBe(before);
+    expect(state.history.past).toHaveLength(1); // just the GROW_ATOM
+    expect(state.selection).toEqual({ kind: "bond", atomIdA: state.graph.rootId, atomIdB: "1" });
+  });
+
+  it("lowers an order without pruning anything", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SET_TOOL_BOND_ORDER", bondOrder: 3 });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1", triple-bonded
+    state = editorReducer(state, { type: "SET_TOOL_BOND_ORDER", bondOrder: 1 });
+
+    state = editorReducer(state, { type: "REPLACE_BOND", atomIdA: state.graph.rootId, atomIdB: "1" });
+
+    expect(findAtomById(state.graph, "1")!.bonds[0].order).toBe(1);
+  });
+
+  it("leaves the graph untouched and unselected when no such bond exists", () => {
+    const state = createInitialState();
+    const after = editorReducer(state, { type: "REPLACE_BOND", atomIdA: state.graph.rootId, atomIdB: "missing" });
+
+    expect(after).toBe(state);
+  });
+
+  it("stays a no-op when the raise is impossible without cutting the edited bond", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "F" });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1", fluorine
+    state = editorReducer(state, { type: "SET_TOOL_BOND_ORDER", bondOrder: 2 });
+    const before = state.graph;
+
+    state = editorReducer(state, { type: "REPLACE_BOND", atomIdA: state.graph.rootId, atomIdB: "1" });
+
+    expect(state.graph).toBe(before);
+    expect(state.selection).toBeNull();
+  });
+});
+
 describe("CLEAR_MOLECULE", () => {
   it("resets to a fresh seed and clears selection", () => {
     let state = createInitialState();
