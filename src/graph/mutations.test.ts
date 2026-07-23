@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import { createSeedGraph } from "./types";
 import {
   addAtomFromStub,
+  addRing,
   closeRingBond,
   deleteAtomSubtree,
   deleteBond,
   setAtomElement,
   setBondOrder,
 } from "./mutations";
-import { findAtomById, hasRing, openSlotCount } from "./queries";
+import { bondOrderBetween, findAtomById, hasRing, isAromaticRing, openSlotCount, findRing } from "./queries";
 
 describe("createSeedGraph", () => {
   it("starts with one open carbon", () => {
@@ -172,6 +173,81 @@ describe("closeRingBond", () => {
     let graph = createSeedGraph();
     graph = addAtomFromStub(graph, graph.rootId, "C", 1);
     expect(() => closeRingBond(graph, graph.rootId, "1", 1)).toThrow();
+  });
+});
+
+describe("addRing", () => {
+  it("grows a plain ring of `size` all-single bonds through the anchor", () => {
+    const graph = addRing(createSeedGraph(), "0", 6, false);
+
+    expect(graph.atoms).toHaveLength(6);
+    const ring = findRing(graph)!;
+    expect(ring).toHaveLength(6);
+    for (let i = 0; i < 6; i++) {
+      expect(bondOrderBetween(graph, ring[i], ring[(i + 1) % 6])).toBe(1);
+    }
+    expect(isAromaticRing(graph, ring)).toBe(false);
+  });
+
+  it("grows an aromatic ring with alternating Kekule bond orders", () => {
+    const graph = addRing(createSeedGraph(), "0", 6, true);
+
+    const ring = findRing(graph)!;
+    expect(isAromaticRing(graph, ring)).toBe(true);
+    // Every ring atom carries exactly one single + one double ring bond.
+    for (const id of ring) {
+      const atom = findAtomById(graph, id)!;
+      const ringOrders = atom.bonds
+        .filter((b) => ring.includes(b.to))
+        .map((b) => b.order)
+        .sort();
+      expect(ringOrders).toEqual([1, 2]);
+    }
+  });
+
+  it("grows through a non-root anchor, leaving the rest of the chain intact", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1"
+
+    graph = addRing(graph, "1", 5, false);
+
+    expect(hasRing(graph)).toBe(true);
+    expect(findAtomById(graph, graph.rootId)).toBeDefined();
+  });
+
+  it("is a single mutation: the whole ring composes from existing atom/bond primitives", () => {
+    const before = createSeedGraph();
+    const after = addRing(before, "0", 4, false);
+    expect(after.atoms).toHaveLength(4);
+    expect(hasRing(after)).toBe(true);
+  });
+
+  it("throws through a non-carbon anchor", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "O", 1); // "1"
+    expect(() => addRing(graph, "1", 6, false)).toThrow();
+  });
+
+  it("throws when a ring already exists", () => {
+    let graph = addRing(createSeedGraph(), "0", 6, false);
+    expect(() => addRing(graph, "0", 5, false)).toThrow();
+  });
+
+  it("throws for an out-of-range size", () => {
+    expect(() => addRing(createSeedGraph(), "0", 2, false)).toThrow();
+    expect(() => addRing(createSeedGraph(), "0", 11, false)).toThrow();
+  });
+
+  it("throws for a non-6 aromatic ring", () => {
+    expect(() => addRing(createSeedGraph(), "0", 5, true)).toThrow();
+  });
+
+  it("throws when the anchor lacks the open valency", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1);
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1);
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // root down to 1 open slot
+    expect(() => addRing(graph, graph.rootId, 6, false)).toThrow(); // needs 2
   });
 });
 

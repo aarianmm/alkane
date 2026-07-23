@@ -1,4 +1,5 @@
 import type { Atom, BondOrder, Element, MoleculeGraph } from "./types";
+import { hasRing, openSlotCount } from "./queries";
 
 function getAtom(graph: MoleculeGraph, id: string): Atom {
   const atom = graph.atoms.find((a) => a.id === id);
@@ -92,6 +93,46 @@ export function closeRingBond(
     bonds: [...atom.bonds, { to: atomIdA, order }],
   }));
   return next;
+}
+
+/**
+ * Grows a ring of `size` carbons through `anchorId` — the toolbar's one-click
+ * insertion, and the only way a cycle enters the graph (see
+ * Cyclic-Ring-Plan.md). Composes `addAtomFromStub` for the chain plus
+ * `closeRingBond` for the closing edge; `aromatic` (size 6 only) stamps the
+ * Kekule alternation (2,1,2,1,2 then closing 1) so every ring atom ends up
+ * with exactly one single + one double ring bond. Display never shows this
+ * Kekule pattern for benzene — that's a derived rendering choice, not stored
+ * here (see graph/queries.ts's isAromaticRing and MoleculeEditor).
+ */
+export function addRing(
+  graph: MoleculeGraph,
+  anchorId: string,
+  size: number,
+  aromatic: boolean,
+): MoleculeGraph {
+  const anchor = getAtom(graph, anchorId);
+  if (anchor.element !== "C") throw new Error("Rings can only be inserted through a carbon atom");
+  if (size < 3 || size > 10) throw new Error("Ring size must be between 3 and 10");
+  if (aromatic && size !== 6) throw new Error("Aromatic rings must be 6-membered");
+  if (hasRing(graph)) throw new Error("The molecule already contains a ring");
+  if (openSlotCount(anchor) < (aromatic ? 3 : 2)) {
+    throw new Error("Anchor atom lacks the open valency for a ring");
+  }
+
+  // Bond order at alternation step i (0-indexed around the full n-bond
+  // cycle): even steps double, odd steps single. Non-aromatic rings are all
+  // single, order 1 throughout.
+  const orderAt = (i: number): BondOrder => (aromatic && i % 2 === 0 ? 2 : 1);
+
+  let current = graph;
+  let previousId = anchorId;
+  for (let i = 0; i < size - 1; i++) {
+    const newId = String(current.nextId);
+    current = addAtomFromStub(current, previousId, "C", orderAt(i));
+    previousId = newId;
+  }
+  return closeRingBond(current, previousId, anchorId, orderAt(size - 1));
 }
 
 export function setAtomElement(graph: MoleculeGraph, atomId: string, element: Element): MoleculeGraph {

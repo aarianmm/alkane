@@ -78,3 +78,111 @@ export function isRingClosureLegal(graph: MoleculeGraph, atomIdA: string, atomId
 
   return path.every((id) => findAtomById(graph, id)?.element === "C");
 }
+
+/** Every atom id on the path from `atomId` up to the root, via `parentId` — ignores any ring-closing bond. */
+function pathToRoot(graph: MoleculeGraph, atomId: string): string[] {
+  const byId = new Map(graph.atoms.map((a) => [a.id, a]));
+  const path: string[] = [];
+  let current: string | undefined = atomId;
+  while (current !== undefined) {
+    path.push(current);
+    current = byId.get(current)?.parentId;
+  }
+  return path;
+}
+
+/**
+ * The tree-only path between two atoms, via their nearest common ancestor.
+ * Unlike `pathBetween`, this ignores any ring-closing bond even when one
+ * connects the two atoms directly — needed by `findRing`, which is called
+ * *after* the closing bond already exists, when a plain BFS would just take
+ * that bond as a one-hop shortcut instead of walking the ring.
+ */
+function treePathBetween(graph: MoleculeGraph, atomIdA: string, atomIdB: string): string[] {
+  const toRootA = pathToRoot(graph, atomIdA);
+  const toRootB = pathToRoot(graph, atomIdB);
+  const inB = new Set(toRootB);
+  const splitA = toRootA.findIndex((id) => inB.has(id));
+  const lca = toRootA[splitA];
+  const downToB = toRootB.slice(0, toRootB.indexOf(lca)).reverse();
+  return [...toRootA.slice(0, splitA + 1), ...downToB];
+}
+
+/**
+ * The molecule's one ring, as an ordered atom-id cycle starting from the
+ * atom nearest the root (the anchor the ring was grown through) — or null
+ * for a plain chain. Purely a rendering/layout query, derived fresh from the
+ * graph every time: see Cyclic-Ring-Plan.md section 1 for why this lives
+ * here rather than as stored state, and section on why it's not naming
+ * logic (the engine does its own independent ring detection for IUPAC
+ * rules; this exists only so the editor can lay the ring out as a polygon
+ * and decide which bonds to draw).
+ */
+export function findRing(graph: MoleculeGraph): string[] | null {
+  if (!hasRing(graph)) return null;
+  const byId = new Map(graph.atoms.map((a) => [a.id, a]));
+
+  const seen = new Set<string>();
+  for (const atom of graph.atoms) {
+    for (const bond of atom.bonds) {
+      const key = [atom.id, bond.to].sort((a, b) => Number(a) - Number(b)).join("-");
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const neighbor = byId.get(bond.to)!;
+      const isTreeEdge = neighbor.parentId === atom.id || atom.parentId === bond.to;
+      if (isTreeEdge) continue;
+
+      const ring = treePathBetween(graph, atom.id, bond.to);
+      let anchorIndex = 0;
+      let anchorDepth = Infinity;
+      ring.forEach((id, i) => {
+        const depth = pathToRoot(graph, id).length;
+        if (depth < anchorDepth) {
+          anchorDepth = depth;
+          anchorIndex = i;
+        }
+      });
+      return [...ring.slice(anchorIndex), ...ring.slice(0, anchorIndex)];
+    }
+  }
+  return null; // unreachable: hasRing() true guarantees a non-tree edge exists
+}
+
+/** The ring's bonds as the same sorted `a-b` keys `collectBonds` renders with — which bonds get the aromatic circle's effective-single-order treatment. */
+export function ringBondKeys(ring: string[]): Set<string> {
+  const keys = new Set<string>();
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i];
+    const b = ring[(i + 1) % ring.length];
+    keys.add([a, b].sort((x, y) => Number(x) - Number(y)).join("-"));
+  }
+  return keys;
+}
+
+/**
+ * Whether the ring should render with the modern inscribed-circle notation:
+ * a 6-membered all-carbon ring whose bonds alternate single/double all the
+ * way around (either Kekule resonance form). Purely a display test on
+ * whatever bond orders are currently stored — so hand-editing a
+ * cyclohexa-1,3,5-triene into full alternation flips this true, and
+ * dropping any one bond back to single flips it false again.
+ */
+export function isAromaticRing(graph: MoleculeGraph, ring: string[]): boolean {
+  if (ring.length !== 6) return false;
+  if (!ring.every((id) => findAtomById(graph, id)?.element === "C")) return false;
+
+  const orders = ring.map((id, i) => bondOrderBetween(graph, id, ring[(i + 1) % ring.length]));
+  if (orders.some((order) => order === undefined)) return false;
+
+  const alternates = (first: BondOrder) => orders.every((order, i) => order === (i % 2 === 0 ? first : 3 - first));
+  return alternates(2) || alternates(1);
+}
+
+/** Whether the toolbar's ring insertion is legal through `anchorId`: no existing ring, a carbon anchor with enough open valency (3 for aromatic, 2 otherwise). */
+export function canInsertRing(graph: MoleculeGraph, anchorId: string, aromatic: boolean): boolean {
+  if (hasRing(graph)) return false;
+  const anchor = findAtomById(graph, anchorId);
+  if (!anchor || anchor.element !== "C") return false;
+  return openSlotCount(anchor) >= (aromatic ? 3 : 2);
+}
