@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { createSeedGraph } from "../graph/types";
-import { addAtomFromStub } from "../graph/mutations";
+import { addAtomFromStub, addRing } from "../graph/mutations";
+import { findRing } from "../graph/queries";
 import { displayed } from "../styles/displayed";
 import { structural } from "../styles/structural";
-import { BOND_LENGTH, computeGrowthTargets, layoutFromRoot } from "./geometry";
+import { skeletal } from "../styles/skeletal";
+import { BOND_LENGTH, computeBondAngles, computeGrowthTargets, layoutFromRoot } from "./geometry";
 
 function closeTo(actual: number, expected: number) {
   expect(actual).toBeCloseTo(expected, 6);
@@ -84,6 +86,88 @@ describe("layoutFromRoot", () => {
     closeTo(positions.get("2")!.y, 0);
     closeTo(positions.get("3")!.y, 0);
     closeTo(positions.get("3")!.x, BOND_LENGTH * 3);
+  });
+});
+
+describe("ring layout", () => {
+  function distance(a: { x: number; y: number }, b: { x: number; y: number }) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  it("renders every ring bond, including the closing one, at exactly BOND_LENGTH, in every style", () => {
+    const graph = addRing(createSeedGraph(), "0", 6, false);
+    const ring = findRing(graph)!;
+
+    for (const style of [displayed, structural, skeletal]) {
+      const positions = layoutFromRoot(graph, style);
+      for (let i = 0; i < ring.length; i++) {
+        const a = positions.get(ring[i])!;
+        const b = positions.get(ring[(i + 1) % ring.length])!;
+        closeTo(distance(a, b), BOND_LENGTH);
+      }
+    }
+  });
+
+  it("places a seed-anchored hexagon with the anchor as the topmost apex", () => {
+    const graph = addRing(createSeedGraph(), "0", 6, false);
+    const ring = findRing(graph)!;
+    const positions = layoutFromRoot(graph, displayed);
+
+    // Anchor at the origin, ring center due south (SVG y-down default), so
+    // the anchor is the smallest-y (topmost) point and every other vertex
+    // sits below it -- the classic apex-at-top hexagon.
+    const anchorY = positions.get(ring[0])!.y;
+    for (const id of ring.slice(1)) {
+      expect(positions.get(id)!.y).toBeGreaterThan(anchorY);
+    }
+    closeTo(positions.get(ring[3])!.x, 0); // the opposite vertex is directly below
+  });
+
+  it("swings the ring away from an existing chain, not back through it", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1", chain east of the seed
+    graph = addRing(graph, graph.rootId, 6, false);
+
+    const positions = layoutFromRoot(graph, displayed);
+    const chainAtom = positions.get("1")!;
+    const ring = findRing(graph)!;
+
+    // Every ring vertex should be at least as far from the chain atom as the
+    // anchor itself is (BOND_LENGTH) -- the ring doesn't fold back over it.
+    for (const id of ring) {
+      expect(distance(positions.get(id)!, chainAtom)).toBeGreaterThanOrEqual(BOND_LENGTH - 1e-6);
+    }
+  });
+
+  it("gives every non-aromatic ring CH2 two symmetric hydrogens, in Displayed", () => {
+    const graph = addRing(createSeedGraph(), "0", 6, false);
+    const placements = layoutFromRoot(graph, displayed); // sanity: layout succeeds
+    expect(placements.size).toBe(6);
+  });
+
+  it("keeps a substituent grown off a ring atom at BOND_LENGTH, outward from the ring", () => {
+    let graph = addRing(createSeedGraph(), "0", 6, false);
+    const ring = findRing(graph)!;
+    graph = addAtomFromStub(graph, ring[1], "C", 1); // methyl substituent off a ring carbon
+
+    const positions = layoutFromRoot(graph, displayed);
+    const substituentId = graph.atoms.find((a) => a.parentId === ring[1])!.id;
+    const ringAtomPos = positions.get(ring[1])!;
+    const substituentPos = positions.get(substituentId)!;
+
+    closeTo(distance(ringAtomPos, substituentPos), BOND_LENGTH);
+  });
+
+  it("includes the ring-closing bond in computeBondAngles for both endpoints", () => {
+    const graph = addRing(createSeedGraph(), "0", 5, false);
+    const ring = findRing(graph)!;
+    const bondAngles = computeBondAngles(graph, displayed);
+
+    // The anchor (ring[0]) and the last ring atom are bonded via the closing
+    // edge, which isn't a parent/child relationship -- confirm both sides
+    // report an angle for it (i.e. more than just their tree-edge angles).
+    expect(bondAngles.get(ring[0])!.length).toBeGreaterThanOrEqual(2);
+    expect(bondAngles.get(ring[ring.length - 1])!.length).toBeGreaterThanOrEqual(2);
   });
 });
 

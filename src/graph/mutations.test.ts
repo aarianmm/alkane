@@ -229,7 +229,7 @@ describe("addRing", () => {
   });
 
   it("throws when a ring already exists", () => {
-    let graph = addRing(createSeedGraph(), "0", 6, false);
+    const graph = addRing(createSeedGraph(), "0", 6, false);
     expect(() => addRing(graph, "0", 5, false)).toThrow();
   });
 

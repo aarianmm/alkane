@@ -1,7 +1,14 @@
 import { PERIODIC_TABLE, type Atom, type MoleculeGraph } from "../graph/types";
-import { openSlotCount } from "../graph/queries";
+import { findRing, openSlotCount } from "../graph/queries";
 import type { RenderStyle } from "../styles/types";
-import { angularDistance, placeHydrogens } from "./hydrogens";
+import { angularDistance, placeHydrogens, toSignedAngle } from "./hydrogens";
+import {
+  angleBetween,
+  ringCenterDirection,
+  ringOutwardAngle,
+  ringSubstituentAngle,
+  ringVertexPositions,
+} from "./rings";
 
 /** SVG user units. The whole editor scales via viewBox, not raw pixels. */
 export const BOND_LENGTH = 42;
@@ -57,14 +64,25 @@ function usedSlotsByParent(graph: MoleculeGraph): Map<string, Set<number>> {
  * Positions every atom by walking out from the root and asking the style
  * for each child's angle. Pure function of the graph and style — incremental
  * by construction, since an atom's position depends only on its ancestors
- * and its own stored slot, never on its siblings. This only follows
- * parent->child edges; a later ring-closing bond doesn't move anything (see
- * layoutRingPolygon, added when ring closure is wired up).
+ * and its own stored slot, never on its siblings.
+ *
+ * A ring is the one exception to "ask the style": when the walk reaches the
+ * ring's anchor (its shallowest atom — see graph/queries.ts's `findRing`),
+ * every ring atom's position is pinned in one shot as a regular polygon
+ * (`ringVertexPositions`), and any further children growing off a ring atom
+ * fan symmetrically off its outward radial (`ringSubstituentAngle`) instead
+ * of consulting `style.childAngle`, which is chain logic that doesn't apply
+ * to ring vertices. This is style-independent by design — Displayed,
+ * Structural, and Skeletal all draw a ring as the same polygon; they still
+ * differ only in labels and hydrogen presentation, exactly as for chains.
  */
 function computeAtomGeometry(graph: MoleculeGraph, style: RenderStyle): Map<string, AtomGeometry> {
   const geometry = new Map<string, AtomGeometry>();
   const children = childrenByParent(graph);
   const byId = new Map(graph.atoms.map((a) => [a.id, a]));
+  const ring = findRing(graph);
+  const ringPositions = new Map<string, Point>();
+  const ringOutwardAngles = new Map<string, number>();
 
   geometry.set(graph.rootId, { position: { x: 0, y: 0 }, angleIn: null, grandAngleIn: null });
   const queue = [graph.rootId];
@@ -74,18 +92,58 @@ function computeAtomGeometry(graph: MoleculeGraph, style: RenderStyle): Map<stri
     const current = geometry.get(currentId)!;
     const valency = PERIODIC_TABLE[byId.get(currentId)!.element].valency;
 
+    if (ring !== null && currentId === ring[0]) {
+      // The ring swings away from whatever's already anchored here: the
+      // parent bond (if any) plus any child grown in before the ring
+      // existed. Ring[1] itself is excluded — that's the one direction the
+      // polygon is about to decide, not a fixed input to it.
+      const parentAngle = current.angleIn === null ? [] : [toSignedAngle(current.angleIn + 180)];
+      const priorChildAngles = (children.get(currentId) ?? [])
+        .filter((child) => child.id !== ring[1])
+        .map((child) =>
+          style.childAngle({
+            angleIn: current.angleIn,
+            grandAngleIn: current.grandAngleIn,
+            slot: child.slotFromParent!,
+            valency,
+          }),
+        );
+      const vertices = ringVertexPositions(
+        current.position,
+        ringCenterDirection([...parentAngle, ...priorChildAngles]),
+        ring.length,
+        BOND_LENGTH,
+      );
+      ring.forEach((id, i) => ringPositions.set(id, vertices[i]));
+      ring.forEach((id, i) => {
+        const prev = vertices[(i - 1 + ring.length) % ring.length];
+        const next = vertices[(i + 1) % ring.length];
+        ringOutwardAngles.set(id, ringOutwardAngle(angleBetween(vertices[i], prev), angleBetween(vertices[i], next)));
+      });
+    }
+
     for (const child of children.get(currentId) ?? []) {
-      const angle = style.childAngle({
-        angleIn: current.angleIn,
-        grandAngleIn: current.grandAngleIn,
-        slot: child.slotFromParent!,
-        valency,
-      });
-      geometry.set(child.id, {
-        position: pointAt(current.position, angle, BOND_LENGTH),
-        angleIn: angle,
-        grandAngleIn: current.angleIn,
-      });
+      let position: Point;
+      let angle: number;
+
+      if (ringPositions.has(child.id)) {
+        position = ringPositions.get(child.id)!;
+        angle = angleBetween(current.position, position);
+      } else if (ringOutwardAngles.has(currentId)) {
+        const slotCount = Math.max(0, valency - 2);
+        angle = ringSubstituentAngle(ringOutwardAngles.get(currentId)!, child.slotFromParent!, slotCount);
+        position = pointAt(current.position, angle, BOND_LENGTH);
+      } else {
+        angle = style.childAngle({
+          angleIn: current.angleIn,
+          grandAngleIn: current.grandAngleIn,
+          slot: child.slotFromParent!,
+          valency,
+        });
+        position = pointAt(current.position, angle, BOND_LENGTH);
+      }
+
+      geometry.set(child.id, { position, angleIn: angle, grandAngleIn: current.angleIn });
       queue.push(child.id);
     }
   }
@@ -144,6 +202,25 @@ function candidateSlotAngles(
   const atom = graph.atoms.find((a) => a.id === atomId)!;
   const g = geometry.get(atomId)!;
   const valency = PERIODIC_TABLE[atom.element].valency;
+
+  const ring = findRing(graph);
+  const ringIndex = ring?.indexOf(atomId) ?? -1;
+  if (ring !== null && ringIndex !== -1) {
+    // A ring atom's non-ring slots fan off its outward radial (see
+    // computeAtomGeometry) rather than the style's chain rule — 2 slots
+    // consumed by its ring bonds regardless of their bond order, so the
+    // geometric slot count is always valency - 2, same "fixed by valency
+    // alone" invariant candidateSlotAngles gives chain atoms.
+    const prevPos = geometry.get(ring[(ringIndex - 1 + ring.length) % ring.length])!.position;
+    const nextPos = geometry.get(ring[(ringIndex + 1) % ring.length])!.position;
+    const outward = ringOutwardAngle(angleBetween(g.position, prevPos), angleBetween(g.position, nextPos));
+    const slotCount = Math.max(0, valency - 2);
+    return Array.from({ length: slotCount }, (_, i) => {
+      const slot = i + 1;
+      return { slot, angle: ringSubstituentAngle(outward, slot, slotCount) };
+    });
+  }
+
   const isRoot = atomId === graph.rootId;
   const slotCount = Math.max(0, isRoot ? valency : valency - 1);
 
@@ -154,10 +231,13 @@ function candidateSlotAngles(
 }
 
 /**
- * The angles of every real bond (parent and children alike) an atom already
- * has, reconstructed from stored `angleIn`s rather than positions — the
- * parent bond is the reverse of this atom's own angleIn, and each child
- * contributes its own angleIn (the angle from this atom to it).
+ * The angles of every real bond (parent, children, and a ring-closing edge
+ * alike) an atom already has. Parent and child angles come from stored
+ * `angleIn`s — the parent bond is the reverse of this atom's own angleIn,
+ * and each child contributes its own angleIn (the angle from this atom to
+ * it). A ring-closing edge has neither: it's read straight off the two
+ * endpoints' positions, which are always already pinned by the time this
+ * runs (ring layout happens earlier in the same `computeAtomGeometry` pass).
  */
 function heavyBondAngles(
   graph: MoleculeGraph,
@@ -172,7 +252,11 @@ function heavyBondAngles(
   if (g.angleIn !== null) angles.push(g.angleIn + 180);
   for (const bond of atom.bonds) {
     const neighbor = byId.get(bond.to)!;
-    if (neighbor.parentId === atomId) angles.push(geometry.get(bond.to)!.angleIn!);
+    if (neighbor.parentId === atomId) {
+      angles.push(geometry.get(bond.to)!.angleIn!);
+    } else if (bond.to !== atom.parentId) {
+      angles.push(angleBetween(g.position, geometry.get(bond.to)!.position));
+    }
   }
 
   return angles;
