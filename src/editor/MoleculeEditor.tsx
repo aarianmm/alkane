@@ -184,6 +184,7 @@ export function MoleculeEditor({
           toLabel={bond.toLabel}
           isSelected={isSelectedBond(selection, bond.atomIdA, bond.atomIdB)}
           deleteMode={deleteMode}
+          interactive
           onActivate={() => onBondActivate(bond.atomIdA, bond.atomIdB)}
         />
       ))}
@@ -207,6 +208,7 @@ export function MoleculeEditor({
           toLabel={{ main: "H", hydrogenCount: 0, hydrogenSide: "after" }}
           isSelected={false}
           deleteMode={false}
+          interactive={false}
           onActivate={() => {}}
         />
       ))}
