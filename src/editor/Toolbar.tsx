@@ -26,9 +26,11 @@ interface ToolbarProps {
   activeStyle: StyleId;
   availableStyles: StyleId[];
   onSelectStyle: (style: StyleId) => void;
-  canAddRing: boolean;
-  canAddAromaticRing: boolean;
-  onAddRing: (size: number, aromatic: boolean) => void;
+  /** Whether a ring can be armed at all right now (the molecule doesn't already have one) — a specific stub's own valency is checked when it's clicked. */
+  canSelectRing: boolean;
+  /** The currently-armed ring, waiting for a stub click, or null if none is armed. */
+  activeRing: { size: number; aromatic: boolean } | null;
+  onSelectRing: (size: number, aromatic: boolean) => void;
   canDelete: boolean;
   onDelete: () => void;
   onClear: () => void;
@@ -46,9 +48,9 @@ export function Toolbar({
   activeStyle,
   availableStyles,
   onSelectStyle,
-  canAddRing,
-  canAddAromaticRing,
-  onAddRing,
+  canSelectRing,
+  activeRing,
+  onSelectRing,
   canDelete,
   onDelete,
   onClear,
@@ -86,24 +88,29 @@ export function Toolbar({
         ))}
       </div>
       <div className={styles.group} aria-label="Ring">
-        {RING_SIZES.map((size) => (
-          <button
-            key={size}
-            type="button"
-            className={styles.button}
-            disabled={!canAddRing}
-            onClick={() => onAddRing(size, false)}
-            title={`Insert a ${size}-membered ring`}
-          >
-            {size}
-          </button>
-        ))}
+        {RING_SIZES.map((size) => {
+          const isActive = activeRing !== null && !activeRing.aromatic && activeRing.size === size;
+          return (
+            <button
+              key={size}
+              type="button"
+              className={`${styles.button} ${isActive ? styles.buttonActive : ""}`}
+              aria-pressed={isActive}
+              disabled={!canSelectRing}
+              onClick={() => onSelectRing(size, false)}
+              title={`Click a stub to grow a ${size}-membered ring there`}
+            >
+              {size}
+            </button>
+          );
+        })}
         <button
           type="button"
-          className={styles.button}
-          disabled={!canAddAromaticRing}
-          onClick={() => onAddRing(6, true)}
-          title="Insert benzene"
+          className={`${styles.button} ${activeRing?.aromatic ? styles.buttonActive : ""}`}
+          aria-pressed={activeRing?.aromatic ?? false}
+          disabled={!canSelectRing}
+          onClick={() => onSelectRing(6, true)}
+          title="Click a stub to grow benzene there"
         >
           ⌬
         </button>

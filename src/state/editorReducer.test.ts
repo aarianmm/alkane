@@ -34,42 +34,92 @@ describe("editorReducer", () => {
   });
 });
 
-describe("ADD_RING", () => {
-  it("grows the ring through the root when nothing is selected", () => {
+describe("SELECT_RING", () => {
+  it("arms a pending ring without touching the graph or history", () => {
     let state = createInitialState();
-    state = editorReducer(state, { type: "ADD_RING", size: 6, aromatic: false });
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+
+    expect(state.selection).toEqual({ kind: "pendingRing", size: 6, aromatic: false });
+    expect(state.graph.atoms).toHaveLength(1);
+    expect(state.history.past).toHaveLength(0);
+  });
+
+  it("replaces whatever was selected before", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_ATOM", atomId: state.graph.rootId });
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: true });
+
+    expect(state.selection).toEqual({ kind: "pendingRing", size: 6, aromatic: true });
+  });
+});
+
+describe("GROW_ATOM with a pending ring armed", () => {
+  it("grows the ring at the clicked stub's atom and disarms", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
 
     expect(state.graph.atoms).toHaveLength(6);
     expect(findRing(state.graph)).not.toBeNull();
+    expect(state.selection).toBeNull();
   });
 
-  it("grows the ring through the selected atom instead of the root", () => {
+  it("grows the ring at whichever atom's stub was clicked, not necessarily the root", () => {
     let state = createInitialState();
     state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
-    state = editorReducer(state, { type: "SELECT_ATOM", atomId: "1" });
+    state = editorReducer(state, { type: "SELECT_RING", size: 5, aromatic: false });
 
-    state = editorReducer(state, { type: "ADD_RING", size: 5, aromatic: false });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" });
 
     expect(findRing(state.graph)![0]).toBe("1");
   });
 
-  it("is a no-op when insertion is illegal (a ring already exists)", () => {
+  it("stays armed when the clicked atom can't legally take a ring", () => {
     let state = createInitialState();
-    state = editorReducer(state, { type: "ADD_RING", size: 6, aromatic: false });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1", carbon
+    state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "O" });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "2", oxygen
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "2" }); // oxygen can't anchor a ring
+
+    expect(state.graph.atoms).toHaveLength(3); // unchanged
+    expect(state.selection).toEqual({ kind: "pendingRing", size: 6, aromatic: false }); // still armed
+  });
+
+  it("is a no-op once a ring already exists in the molecule", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
     const afterFirstRing = state.graph;
 
-    state = editorReducer(state, { type: "ADD_RING", size: 5, aromatic: false });
+    state = editorReducer(state, { type: "SELECT_RING", size: 5, aromatic: false });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
 
     expect(state.graph).toBe(afterFirstRing);
   });
 
   it("is a single undo step", () => {
     let state = createInitialState();
-    state = editorReducer(state, { type: "ADD_RING", size: 6, aromatic: true });
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: true });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
     expect(state.graph.atoms).toHaveLength(6);
 
     state = editorReducer(state, { type: "UNDO" });
 
+    expect(state.graph.atoms).toHaveLength(1);
+  });
+});
+
+describe("DELETE_SELECTION with a pending ring armed", () => {
+  it("cancels the arm instead of touching the graph", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+
+    state = editorReducer(state, { type: "DELETE_SELECTION" });
+
+    expect(state.selection).toBeNull();
     expect(state.graph.atoms).toHaveLength(1);
   });
 });

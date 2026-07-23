@@ -3,7 +3,7 @@ import { useMoleculeName } from "./api/useMoleculeName";
 import { MoleculeEditor } from "./editor/MoleculeEditor";
 import { NameDisplay } from "./editor/NameDisplay";
 import { Toolbar } from "./editor/Toolbar";
-import { bondOrderBetween, canInsertRing, findAtomById } from "./graph/queries";
+import { bondOrderBetween, findAtomById, hasRing } from "./graph/queries";
 import { getStyle, STYLES } from "./styles";
 import type { StyleId } from "./styles";
 import { createInitialState, editorReducer } from "./state/editorReducer";
@@ -54,11 +54,12 @@ function App() {
   const style = getStyle(state.style);
   const availableStyles = Object.keys(STYLES) as StyleId[];
 
-  // The ring toolbar targets whatever the growth tool would target: the
-  // selected atom, or the root.
-  const ringAnchorId = selection?.kind === "atom" ? selection.atomId : state.graph.rootId;
-  const canAddRing = canInsertRing(state.graph, ringAnchorId, false);
-  const canAddAromaticRing = canInsertRing(state.graph, ringAnchorId, true);
+  // Arming a ring from the toolbar doesn't target an atom yet -- that comes
+  // from whichever stub the user clicks next (GROW_ATOM in the reducer).
+  // Only the molecule-wide "one ring" gate applies upfront; a specific
+  // stub's valency is checked at click time.
+  const canSelectRing = !hasRing(state.graph);
+  const activeRing = selection?.kind === "pendingRing" ? { size: selection.size, aromatic: selection.aromatic } : null;
 
   return (
     <div
@@ -91,9 +92,9 @@ function App() {
         activeStyle={state.style}
         availableStyles={availableStyles}
         onSelectStyle={(style) => dispatch({ type: "SET_STYLE", style })}
-        canAddRing={canAddRing}
-        canAddAromaticRing={canAddAromaticRing}
-        onAddRing={(size, aromatic) => dispatch({ type: "ADD_RING", size, aromatic })}
+        canSelectRing={canSelectRing}
+        activeRing={activeRing}
+        onSelectRing={(size, aromatic) => dispatch({ type: "SELECT_RING", size, aromatic })}
         canDelete={canDelete}
         onDelete={() => dispatch({ type: "DELETE_SELECTION" })}
         onClear={() => dispatch({ type: "CLEAR_MOLECULE" })}
