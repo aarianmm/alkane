@@ -24,6 +24,10 @@ interface BondViewProps {
   isSelected: boolean;
   /** While on, hovering this bond previews red -- a click will decrement its order, or sever it once it's already single. */
   deleteMode: boolean;
+  /** False for the decorative implicit-hydrogen bond line -- it isn't a real editable bond, so hovering it previews nothing. */
+  interactive: boolean;
+  /** False when the armed toolbar bond order already matches this bond -- clicking would be a no-op, so hovering previews nothing (delete-mode preview is unaffected). */
+  replaceable: boolean;
   onActivate: () => void;
 }
 
@@ -38,9 +42,23 @@ function offsetsForOrder(order: BondOrder): number[] {
   }
 }
 
-export function BondView({ from, to, order, fromLabel, toLabel, isSelected, deleteMode, onActivate }: BondViewProps) {
+export function BondView({
+  from,
+  to,
+  order,
+  fromLabel,
+  toLabel,
+  isSelected,
+  deleteMode,
+  interactive,
+  replaceable,
+  onActivate,
+}: BondViewProps) {
   const [hovered, setHovered] = useState(false);
-  const previewDelete = deleteMode && hovered;
+  const previewDelete = interactive && deleteMode && hovered;
+  // Hovering previews the armed toolbar bond order being applied on click, same as if it were already selected.
+  const previewReplace = interactive && replaceable && !deleteMode && hovered;
+  const clickable = deleteMode ? interactive : interactive && replaceable;
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const length = Math.hypot(dx, dy) || 1;
@@ -64,7 +82,7 @@ export function BondView({ from, to, order, fromLabel, toLabel, isSelected, dele
       }}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
-      style={{ cursor: "pointer" }}
+      style={{ cursor: clickable ? "pointer" : "default" }}
     >
       <line
         x1={from.x}
@@ -75,7 +93,7 @@ export function BondView({ from, to, order, fromLabel, toLabel, isSelected, dele
         strokeWidth={HIT_WIDTH}
       />
       <g
-        stroke={previewDelete ? DANGER : isSelected ? ACCENT : DEFAULT_STROKE}
+        stroke={previewDelete ? DANGER : isSelected || previewReplace ? ACCENT : DEFAULT_STROKE}
         strokeWidth={DEFAULT_STROKE_WIDTH}
         strokeLinecap="round"
       >
