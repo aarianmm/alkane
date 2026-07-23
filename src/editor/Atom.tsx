@@ -16,8 +16,10 @@ interface AtomViewProps {
   /** What this vertex shows, from the active style's label() rule. Null = bare vertex. */
   label: LabelSpec | null;
   isSelected: boolean;
-  /** While on, hovering this atom previews red (it -- and its trimmed branch -- would be removed on click) instead of the normal selection blue. */
+  /** While on, hovering this atom previews red (it -- and its trimmed branch -- would be removed on click) instead of the replace-preview blue below. */
   deleteMode: boolean;
+  /** False for the seed atom while delete mode is on -- it can't be deleted, so hovering it previews nothing. */
+  deletable: boolean;
   onActivate: (atomId: string) => void;
 }
 
@@ -70,11 +72,13 @@ function LabelText({ position, label, fill }: { position: Point; label: LabelSpe
   );
 }
 
-export function AtomView({ atom, position, label, isSelected, deleteMode, onActivate }: AtomViewProps) {
+export function AtomView({ atom, position, label, isSelected, deleteMode, deletable, onActivate }: AtomViewProps) {
   const [hovered, setHovered] = useState(false);
-  const previewDelete = deleteMode && hovered;
+  const previewDelete = deleteMode && deletable && hovered;
+  // Hovering previews the armed toolbar element being applied on click, same as if it were already selected.
+  const previewReplace = !deleteMode && hovered;
   const accent = previewDelete ? DANGER : ACCENT;
-  const highlighted = isSelected || previewDelete;
+  const highlighted = isSelected || previewDelete || previewReplace;
   const highlightFill = previewDelete ? DANGER_FILL : "#eaf1ff";
 
   return (
