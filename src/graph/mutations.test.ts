@@ -6,10 +6,21 @@ import {
   closeRingBond,
   deleteAtomSubtree,
   deleteBond,
+  pruneToFitValency,
+  replaceAtomWithRing,
+  retypeAtomWithPrune,
   setAtomElement,
   setBondOrder,
 } from "./mutations";
-import { bondOrderBetween, findAtomById, hasRing, isAromaticRing, openSlotCount, findRing } from "./queries";
+import {
+  bondOrderBetween,
+  findAtomById,
+  hasRing,
+  isAromaticRing,
+  openSlotCount,
+  findRing,
+  usedValency,
+} from "./queries";
 
 describe("createSeedGraph", () => {
   it("starts with one open carbon", () => {
@@ -277,6 +288,174 @@ describe("addRing", () => {
     graph = addAtomFromStub(graph, graph.rootId, "C", 1);
     graph = addAtomFromStub(graph, graph.rootId, "C", 1); // root down to 1 open slot
     expect(() => addRing(graph, graph.rootId, 6, false)).toThrow(); // needs 2
+  });
+});
+
+describe("pruneToFitValency", () => {
+  it("is a no-op (same graph reference) when the atom already fits", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1);
+
+    const pruned = pruneToFitValency(graph, graph.rootId, 4);
+
+    expect(pruned).toBe(graph);
+  });
+
+  it("trims one branch, preferring the higher-slot (more branch-like) attachment", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1", slot 1
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "2", slot 2
+    expect(usedValency(findAtomById(graph, graph.rootId)!)).toBe(2);
+
+    graph = pruneToFitValency(graph, graph.rootId, 1);
+
+    expect(graph.atoms.map((a) => a.id).sort()).toEqual([graph.rootId, "1"]);
+    expect(usedValency(findAtomById(graph, graph.rootId)!)).toBe(1);
+  });
+
+  it("trims multiple branches down to the single lowest-slot (primary chain) survivor", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1", slot 1
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "2", slot 2
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "3", slot 3
+    expect(usedValency(findAtomById(graph, graph.rootId)!)).toBe(3);
+
+    graph = pruneToFitValency(graph, graph.rootId, 1);
+
+    expect(graph.atoms.map((a) => a.id).sort()).toEqual([graph.rootId, "1"]);
+    expect(findAtomById(graph, "1")!.slotFromParent).toBe(1);
+  });
+
+  it("never touches the parent edge, even if it alone still overshoots the target", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "N", 2); // "1", double-bonded parent edge
+
+    const pruned = pruneToFitValency(graph, "1", 1);
+
+    expect(pruned).toBe(graph); // nothing else to trim -- the parent edge is off-limits
+    expect(usedValency(findAtomById(pruned, "1")!)).toBe(2);
+  });
+
+  it("opens a ring rather than deleting atoms, when just reducing the closing bond is enough", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // anchor = "1"
+    graph = addRing(graph, "1", 5, false);
+    expect(usedValency(findAtomById(graph, "1")!)).toBe(3); // parent + ring child + ring closing
+
+    graph = pruneToFitValency(graph, "1", 2);
+
+    expect(hasRing(graph)).toBe(false);
+    expect(graph.atoms).toHaveLength(6); // no atom lost -- just the redundant ring edge
+    expect(usedValency(findAtomById(graph, "1")!)).toBe(2);
+  });
+
+  it("sheds the whole ring, atoms included, when the target leaves no room for it at all", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // anchor = "1"
+    graph = addRing(graph, "1", 5, false);
+
+    graph = pruneToFitValency(graph, "1", 1);
+
+    expect(hasRing(graph)).toBe(false);
+    expect(graph.atoms.map((a) => a.id).sort()).toEqual([graph.rootId, "1"]);
+    expect(usedValency(findAtomById(graph, "1")!)).toBe(1);
+  });
+});
+
+describe("retypeAtomWithPrune", () => {
+  it("retypes without pruning when the new element's valency already fits", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1"
+
+    graph = retypeAtomWithPrune(graph, "1", "O");
+
+    const atom = findAtomById(graph, "1")!;
+    expect(atom.element).toBe("O");
+    expect(atom.bonds).toEqual([{ to: graph.rootId, order: 1 }]);
+  });
+
+  it("prunes branches that no longer fit before retyping to a lower-valency element", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1"
+    graph = addAtomFromStub(graph, "1", "C", 1); // "2", slot 1 off "1"
+    graph = addAtomFromStub(graph, "1", "C", 1); // "3", slot 2 off "1"
+    // "1" is carbon with parent(1) + two branches(1,1) = used valency 3.
+
+    graph = retypeAtomWithPrune(graph, "1", "N"); // nitrogen's valency is 3 -- everything still fits
+
+    let atom = findAtomById(graph, "1")!;
+    expect(atom.element).toBe("N");
+    expect(atom.bonds).toHaveLength(3);
+
+    graph = retypeAtomWithPrune(graph, "1", "O"); // oxygen's valency is 2 -- one branch must go
+
+    atom = findAtomById(graph, "1")!;
+    expect(atom.element).toBe("O");
+    expect(usedValency(atom)).toBe(2);
+    expect(atom.bonds).toHaveLength(2);
+  });
+});
+
+describe("replaceAtomWithRing", () => {
+  it("replaces a carbon anchor with the requested ring", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1"
+
+    graph = replaceAtomWithRing(graph, "1", 6, false);
+
+    const ring = findRing(graph)!;
+    expect(ring).toHaveLength(6);
+    expect(ring).toContain("1");
+  });
+
+  it("prunes branches off the anchor first when it lacks the open valency", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1"
+    graph = addAtomFromStub(graph, "1", "O", 1); // "2"
+    graph = addAtomFromStub(graph, "1", "N", 1); // "3" -- "1" now has only 1 open slot
+    expect(openSlotCount(findAtomById(graph, "1")!)).toBe(1);
+
+    graph = replaceAtomWithRing(graph, "1", 6, true); // aromatic needs 3 open slots
+
+    const ring = findRing(graph)!;
+    expect(ring).toContain("1");
+    expect(findAtomById(graph, "2")).toBeUndefined(); // pruned to make room
+    expect(findAtomById(graph, "3")).toBeUndefined();
+  });
+
+  it("is a no-op, leaving the graph unchanged, through a non-carbon atom", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "O", 1); // "1"
+
+    const result = replaceAtomWithRing(graph, "1", 6, false);
+
+    expect(result).toBe(graph);
+  });
+
+  it("is a no-op when a ring already exists in the molecule", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1"
+    graph = addRing(graph, "1", 5, false);
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "6", a second substituent on the seed
+
+    const result = replaceAtomWithRing(graph, "6", 6, false);
+
+    expect(result).toBe(graph);
+  });
+
+  it("is a no-op, without leaving a partially-pruned atom, when it still can't fit after pruning", () => {
+    // "1" is carbon with nothing to prune off it, but its own parent bond is
+    // a double bond -- pruning can never touch that, so even with every other
+    // branch gone it's stuck at 2 used valency, short of the 1 an aromatic
+    // ring's 3-open-slot requirement demands.
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 2); // "1"
+
+    const result = replaceAtomWithRing(graph, "1", 6, true);
+
+    expect(result).toBe(graph);
+    expect(findAtomById(result, "1")!.element).toBe("C");
+    expect(hasRing(result)).toBe(false);
   });
 });
 
