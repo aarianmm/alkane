@@ -312,7 +312,7 @@ export function pruneToFitValency(
  * Retypes `atomId` to `element`, first pruning whatever branches don't fit
  * the new element's valency so the atom never ends up hypervalent. Bonds
  * that still fit are left untouched. This is the click-to-replace counterpart
- * to `RETYPE_SELECTED_ATOM`, which deliberately skips pruning.
+ * to `setAtomElement`, which deliberately skips pruning.
  */
 export function retypeAtomWithPrune(
   graph: MoleculeGraph,

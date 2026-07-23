@@ -21,7 +21,6 @@ interface BondViewProps {
   order: BondOrder;
   fromLabel: LabelSpec | null;
   toLabel: LabelSpec | null;
-  isSelected: boolean;
   /** While on, hovering this bond previews red -- a click will decrement its order, or sever it once it's already single. */
   deleteMode: boolean;
   /** False for the decorative implicit-hydrogen bond line -- it isn't a real editable bond, so hovering it previews nothing. */
@@ -48,7 +47,6 @@ export function BondView({
   order,
   fromLabel,
   toLabel,
-  isSelected,
   deleteMode,
   interactive,
   replaceable,
@@ -56,7 +54,7 @@ export function BondView({
 }: BondViewProps) {
   const [hovered, setHovered] = useState(false);
   const previewDelete = interactive && deleteMode && hovered;
-  // Hovering previews the armed toolbar bond order being applied on click, same as if it were already selected.
+  // Hovering previews the armed toolbar bond order being applied on click.
   const previewReplace = interactive && replaceable && !deleteMode && hovered;
   const clickable = deleteMode ? interactive : interactive && replaceable;
   const dx = to.x - from.x;
@@ -93,7 +91,7 @@ export function BondView({
         strokeWidth={HIT_WIDTH}
       />
       <g
-        stroke={previewDelete ? DANGER : isSelected || previewReplace ? ACCENT : DEFAULT_STROKE}
+        stroke={previewDelete ? DANGER : previewReplace ? ACCENT : DEFAULT_STROKE}
         strokeWidth={DEFAULT_STROKE_WIDTH}
         strokeLinecap="round"
       >
