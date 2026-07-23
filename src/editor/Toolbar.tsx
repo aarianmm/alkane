@@ -152,9 +152,7 @@ export function Toolbar({
           aria-pressed={deleteMode}
           onClick={onDelete}
           title={
-            deleteMode
-              ? "Click an atom or bond to delete it (Esc to exit)"
-              : "Delete the current selection, or click to enter delete mode"
+            deleteMode ? "Click an atom or bond to delete it (Esc to exit)" : "Click to enter delete mode"
           }
         >
           Delete
