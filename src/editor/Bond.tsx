@@ -26,6 +26,8 @@ interface BondViewProps {
   deleteMode: boolean;
   /** False for the decorative implicit-hydrogen bond line -- it isn't a real editable bond, so hovering it previews nothing. */
   interactive: boolean;
+  /** False when the armed toolbar bond order already matches this bond -- clicking would be a no-op, so hovering previews nothing (delete-mode preview is unaffected). */
+  replaceable: boolean;
   onActivate: () => void;
 }
 
@@ -49,12 +51,14 @@ export function BondView({
   isSelected,
   deleteMode,
   interactive,
+  replaceable,
   onActivate,
 }: BondViewProps) {
   const [hovered, setHovered] = useState(false);
   const previewDelete = interactive && deleteMode && hovered;
   // Hovering previews the armed toolbar bond order being applied on click, same as if it were already selected.
-  const previewReplace = interactive && !deleteMode && hovered;
+  const previewReplace = interactive && replaceable && !deleteMode && hovered;
+  const clickable = deleteMode ? interactive : interactive && replaceable;
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const length = Math.hypot(dx, dy) || 1;
@@ -78,7 +82,7 @@ export function BondView({
       }}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
-      style={{ cursor: "pointer" }}
+      style={{ cursor: clickable ? "pointer" : "default" }}
     >
       <line
         x1={from.x}

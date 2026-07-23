@@ -26,6 +26,8 @@ interface MoleculeEditorProps {
   deleteMode: boolean;
   /** The element the next atom click will apply -- also used to tell whether hovering a given atom would actually change it. */
   armedElement: Element;
+  /** The bond order the next bond click will apply -- also used to tell whether hovering a given bond would actually change it. */
+  armedBondOrder: BondOrder;
   onStubActivate: (atomId: string) => void;
   onAtomActivate: (atomId: string) => void;
   onBondActivate: (atomIdA: string, atomIdB: string) => void;
@@ -119,6 +121,7 @@ export function MoleculeEditor({
   selection,
   deleteMode,
   armedElement,
+  armedBondOrder,
   onStubActivate,
   onAtomActivate,
   onBondActivate,
@@ -139,6 +142,10 @@ export function MoleculeEditor({
   );
 
   const bonds = collectBonds(graph, positions, labels);
+  // Aromatic rings render every bond at order 1 below (the Kekule lines never
+  // show), so the hover no-op check needs each bond's real stored order, not
+  // its display order.
+  const trueBondOrders = new Map(bonds.map((bond) => [bond.key, bond.order]));
   const growthTargets = computeGrowthTargets(graph, style);
   const hydrogens = computeHydrogenPlacements(graph, style);
 
@@ -195,6 +202,7 @@ export function MoleculeEditor({
           isSelected={isSelectedBond(selection, bond.atomIdA, bond.atomIdB)}
           deleteMode={deleteMode}
           interactive
+          replaceable={trueBondOrders.get(bond.key) !== armedBondOrder}
           onActivate={() => onBondActivate(bond.atomIdA, bond.atomIdB)}
         />
       ))}
@@ -219,6 +227,7 @@ export function MoleculeEditor({
           isSelected={false}
           deleteMode={false}
           interactive={false}
+          replaceable={false}
           onActivate={() => {}}
         />
       ))}
