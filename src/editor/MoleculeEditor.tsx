@@ -1,4 +1,4 @@
-import type { BondOrder, MoleculeGraph } from "../graph/types";
+import type { BondOrder, Element, MoleculeGraph } from "../graph/types";
 import { findRing, isAromaticRing, openSlotCount, ringBondKeys } from "../graph/queries";
 import { angularDistance } from "../layout/hydrogens";
 import {
@@ -24,6 +24,8 @@ interface MoleculeEditorProps {
   selection: Selection;
   /** While on, hovering an atom/bond previews red (about to be deleted/trimmed) instead of the normal selection blue. */
   deleteMode: boolean;
+  /** The element the next atom click will apply -- also used to tell whether hovering a given atom would actually change it. */
+  armedElement: Element;
   onStubActivate: (atomId: string) => void;
   onAtomActivate: (atomId: string) => void;
   onBondActivate: (atomIdA: string, atomIdB: string) => void;
@@ -95,6 +97,13 @@ function isSelectedBond(selection: Selection, atomIdA: string, atomIdB: string):
   );
 }
 
+// A pending ring always changes something concrete when it lands (there's no
+// single "already this" element to compare against), so only a plain armed
+// element -- already equal to the atom's own -- counts as a no-op.
+function isReplaceableAtom(selection: Selection, armedElement: Element, atomElement: Element): boolean {
+  return selection?.kind === "pendingRing" || atomElement !== armedElement;
+}
+
 /**
  * Renders the molecule graph as SVG and turns pointer activity into editing
  * requests (grow from a stub, select an atom/bond, deselect on empty canvas).
@@ -109,6 +118,7 @@ export function MoleculeEditor({
   style,
   selection,
   deleteMode,
+  armedElement,
   onStubActivate,
   onAtomActivate,
   onBondActivate,
@@ -236,6 +246,7 @@ export function MoleculeEditor({
           isSelected={isSelectedAtom(selection, atom.id)}
           deleteMode={deleteMode}
           deletable={atom.id !== graph.rootId}
+          replaceable={isReplaceableAtom(selection, armedElement, atom.element)}
           onActivate={onAtomActivate}
         />
       ))}
