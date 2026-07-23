@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { createSeedGraph } from "./types";
-import { addAtomFromStub, closeRingBond, setBondOrder } from "./mutations";
-import { bondOrderBetween, hasRing, isRingClosureLegal, openSlotCount, pathBetween } from "./queries";
+import { addAtomFromStub, addRing, closeRingBond, setBondOrder } from "./mutations";
+import {
+  bondOrderBetween,
+  canInsertRing,
+  findRing,
+  hasRing,
+  isAromaticRing,
+  isRingClosureLegal,
+  openSlotCount,
+  pathBetween,
+  ringBondKeys,
+} from "./queries";
 
 describe("openSlotCount", () => {
   it("reflects nominal valency minus bonds used", () => {
@@ -107,5 +117,105 @@ describe("isRingClosureLegal", () => {
     graph = addAtomFromStub(graph, "5", "C", 1); // "6"
     graph = addAtomFromStub(graph, "6", "C", 1); // "7"
     expect(isRingClosureLegal(graph, "1", "7")).toBe(false);
+  });
+});
+
+describe("findRing", () => {
+  it("is null for a plain chain", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1);
+    expect(findRing(graph)).toBeNull();
+  });
+
+  it("returns every ring atom exactly once, starting from the anchor nearest the root", () => {
+    const graph = addRing(createSeedGraph(), "0", 6, false);
+    const ring = findRing(graph)!;
+
+    expect(ring).toHaveLength(6);
+    expect(new Set(ring).size).toBe(6);
+    expect(ring[0]).toBe("0"); // the seed is both the root and the anchor
+
+    // Every consecutive pair (wrapping) is actually bonded.
+    for (let i = 0; i < ring.length; i++) {
+      expect(bondOrderBetween(graph, ring[i], ring[(i + 1) % ring.length])).toBeDefined();
+    }
+  });
+
+  it("starts from the anchor, not the root, when the ring hangs off a chain", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1"
+    graph = addRing(graph, "1", 5, false);
+
+    expect(findRing(graph)![0]).toBe("1");
+  });
+});
+
+describe("ringBondKeys", () => {
+  it("keys every ring edge, including the closing one", () => {
+    const graph = addRing(createSeedGraph(), "0", 4, false);
+    const ring = findRing(graph)!;
+    const keys = ringBondKeys(ring);
+
+    expect(keys.size).toBe(4);
+    for (let i = 0; i < ring.length; i++) {
+      const [a, b] = [ring[i], ring[(i + 1) % ring.length]].sort((x, y) => Number(x) - Number(y));
+      expect(keys.has(`${a}-${b}`)).toBe(true);
+    }
+  });
+});
+
+describe("isAromaticRing", () => {
+  it("is true for a Kekule-alternating 6-ring", () => {
+    const graph = addRing(createSeedGraph(), "0", 6, true);
+    expect(isAromaticRing(graph, findRing(graph)!)).toBe(true);
+  });
+
+  it("is false for an all-single 6-ring (cyclohexane)", () => {
+    const graph = addRing(createSeedGraph(), "0", 6, false);
+    expect(isAromaticRing(graph, findRing(graph)!)).toBe(false);
+  });
+
+  it("is false for a 5-ring even if alternating", () => {
+    let graph = createSeedGraph();
+    for (let i = 0; i < 4; i++) {
+      const parent = i === 0 ? graph.rootId : String(i);
+      graph = addAtomFromStub(graph, parent, "C", i % 2 === 0 ? 2 : 1);
+    }
+    graph = closeRingBond(graph, "4", graph.rootId, 1);
+    expect(isAromaticRing(graph, findRing(graph)!)).toBe(false);
+  });
+
+  it("is false once one ring bond is dropped back to single (partial Kekule)", () => {
+    const graph = addRing(createSeedGraph(), "0", 6, true);
+    const ring = findRing(graph)!;
+    const downgraded = setBondOrder(graph, ring[0], ring[1], 1);
+    expect(isAromaticRing(downgraded, ring)).toBe(false);
+  });
+});
+
+describe("canInsertRing", () => {
+  it("allows a plain ring through the fresh seed", () => {
+    expect(canInsertRing(createSeedGraph(), "0", false)).toBe(true);
+  });
+
+  it("requires 3 open slots for an aromatic ring but only 2 for a plain one", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1);
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // root: 2 open slots left
+
+    expect(canInsertRing(graph, graph.rootId, false)).toBe(true);
+    expect(canInsertRing(graph, graph.rootId, true)).toBe(false);
+  });
+
+  it("rejects a non-carbon anchor", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "O", 1);
+    expect(canInsertRing(graph, "1", false)).toBe(false);
+  });
+
+  it("rejects once a ring already exists", () => {
+    const graph = addRing(createSeedGraph(), "0", 6, false);
+    const ring = findRing(graph)!;
+    expect(canInsertRing(graph, ring[1], false)).toBe(false);
   });
 });

@@ -9,6 +9,9 @@ const BOND_ORDERS: { order: BondOrder; label: string }[] = [
   { order: 3, label: "≡" },
 ];
 
+/** The taught ring-size range. The engine names up to cyclodecane (10), but 3-8 covers what's actually taught. */
+const RING_SIZES = [3, 4, 5, 6, 7, 8];
+
 const STYLE_LABELS: Record<StyleId, string> = {
   displayed: "Displayed",
   structural: "Structural",
@@ -23,6 +26,11 @@ interface ToolbarProps {
   activeStyle: StyleId;
   availableStyles: StyleId[];
   onSelectStyle: (style: StyleId) => void;
+  /** Whether a ring can be armed at all right now (the molecule doesn't already have one) — a specific stub's own valency is checked when it's clicked. */
+  canSelectRing: boolean;
+  /** The currently-armed ring, waiting for a stub click, or null if none is armed. */
+  activeRing: { size: number; aromatic: boolean } | null;
+  onSelectRing: (size: number, aromatic: boolean) => void;
   canDelete: boolean;
   onDelete: () => void;
   onClear: () => void;
@@ -40,6 +48,9 @@ export function Toolbar({
   activeStyle,
   availableStyles,
   onSelectStyle,
+  canSelectRing,
+  activeRing,
+  onSelectRing,
   canDelete,
   onDelete,
   onClear,
@@ -75,6 +86,34 @@ export function Toolbar({
             {label}
           </button>
         ))}
+      </div>
+      <div className={styles.group} aria-label="Ring">
+        {RING_SIZES.map((size) => {
+          const isActive = activeRing !== null && !activeRing.aromatic && activeRing.size === size;
+          return (
+            <button
+              key={size}
+              type="button"
+              className={`${styles.button} ${isActive ? styles.buttonActive : ""}`}
+              aria-pressed={isActive}
+              disabled={!canSelectRing}
+              onClick={() => onSelectRing(size, false)}
+              title={`Click a stub to grow a ${size}-membered ring there`}
+            >
+              {size}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          className={`${styles.button} ${activeRing?.aromatic ? styles.buttonActive : ""}`}
+          aria-pressed={activeRing?.aromatic ?? false}
+          disabled={!canSelectRing}
+          onClick={() => onSelectRing(6, true)}
+          title="Click a stub to grow benzene there"
+        >
+          ⌬
+        </button>
       </div>
       {availableStyles.length > 1 && (
         <div className={styles.group} aria-label="Formula style">

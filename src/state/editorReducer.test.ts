@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { closeRingBond } from "../graph/mutations";
+import { findAtomById, findRing } from "../graph/queries";
 import { createInitialState, editorReducer } from "./editorReducer";
 
 describe("editorReducer", () => {
@@ -30,6 +31,97 @@ describe("editorReducer", () => {
     state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "N" });
 
     expect(state.graph).toBe(before);
+  });
+});
+
+describe("SELECT_RING", () => {
+  it("arms a pending ring without touching the graph or history", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+
+    expect(state.selection).toEqual({ kind: "pendingRing", size: 6, aromatic: false });
+    expect(state.graph.atoms).toHaveLength(1);
+    expect(state.history.past).toHaveLength(0);
+  });
+
+  it("replaces whatever was selected before", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_ATOM", atomId: state.graph.rootId });
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: true });
+
+    expect(state.selection).toEqual({ kind: "pendingRing", size: 6, aromatic: true });
+  });
+});
+
+describe("GROW_ATOM with a pending ring armed", () => {
+  it("hangs the ring off a fresh carbon grown from the clicked stub -- the clicked atom itself stays a substituent", () => {
+    let state = createInitialState(); // seed carbon, methane
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+
+    // 1 fresh anchor carbon + 5 more ring carbons, plus the original seed
+    // still present as a substituent = 7 atoms -- methylcyclohexane's shape.
+    expect(state.graph.atoms).toHaveLength(7);
+    const ring = findRing(state.graph)!;
+    expect(ring).toHaveLength(6);
+    expect(ring).not.toContain(state.graph.rootId); // the seed never joins the ring itself
+    expect(state.selection).toBeNull();
+
+    const seed = findAtomById(state.graph, state.graph.rootId)!;
+    expect(seed.bonds).toHaveLength(1); // just the one new bond to the ring
+    expect(ring).toContain(seed.bonds[0].to);
+  });
+
+  it("works from an open stub on any element, since the ring always anchors on a fresh carbon", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "O" });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1", oxygen
+    state = editorReducer(state, { type: "SELECT_RING", size: 5, aromatic: false });
+
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" });
+
+    const oxygen = findAtomById(state.graph, "1")!;
+    expect(oxygen.bonds).toHaveLength(2); // its original C-O parent bond, plus one new bond to the ring
+    const ring = findRing(state.graph)!;
+    expect(ring).not.toContain("1");
+    expect(oxygen.bonds.some((b) => b.to === ring[0])).toBe(true);
+  });
+
+  it("is a no-op once a ring already exists in the molecule, and stays armed", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+    const afterFirstRing = state.graph;
+
+    state = editorReducer(state, { type: "SELECT_RING", size: 5, aromatic: false });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+
+    expect(state.graph).toBe(afterFirstRing);
+    expect(state.selection).toEqual({ kind: "pendingRing", size: 5, aromatic: false });
+  });
+
+  it("is a single undo step", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: true });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+    expect(state.graph.atoms).toHaveLength(7);
+
+    state = editorReducer(state, { type: "UNDO" });
+
+    expect(state.graph.atoms).toHaveLength(1);
+  });
+});
+
+describe("DELETE_SELECTION with a pending ring armed", () => {
+  it("cancels the arm instead of touching the graph", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+
+    state = editorReducer(state, { type: "DELETE_SELECTION" });
+
+    expect(state.selection).toBeNull();
+    expect(state.graph.atoms).toHaveLength(1);
   });
 });
 

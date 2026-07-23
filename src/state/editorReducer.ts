@@ -1,16 +1,20 @@
 import { createSeedGraph, type BondOrder, type Element, type MoleculeGraph } from "../graph/types";
 import {
   addAtomFromStub,
+  addRing,
   deleteAtomSubtree,
   deleteBond,
   setAtomElement,
   setBondOrder,
 } from "../graph/mutations";
+import { canInsertRing } from "../graph/queries";
 import { DEFAULT_STYLE, type StyleId } from "../styles";
 
 export type Selection =
   | { kind: "atom"; atomId: string }
   | { kind: "bond"; atomIdA: string; atomIdB: string }
+  /** A ring size (and aromaticity) armed from the toolbar, waiting for the next stub click to say where it grows — the same "held, then applied to whatever's clicked" shape as an atom/bond selection, just not pointing at an existing graph element yet. */
+  | { kind: "pendingRing"; size: number; aromatic: boolean }
   | null;
 
 interface History {
@@ -44,6 +48,7 @@ export function createInitialState(): EditorState {
 
 export type EditorAction =
   | { type: "GROW_ATOM"; atomId: string }
+  | { type: "SELECT_RING"; size: number; aromatic: boolean }
   | { type: "SET_STYLE"; style: StyleId }
   | { type: "SET_TOOL_ELEMENT"; element: Element }
   | { type: "SET_TOOL_BOND_ORDER"; bondOrder: BondOrder }
@@ -69,11 +74,29 @@ function withMutation(state: EditorState, graph: MoleculeGraph, extra: Partial<E
 
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
-    case "GROW_ATOM":
+    case "GROW_ATOM": {
+      // A stub click means "hang the armed ring off this open valence"
+      // while one's pending, instead of its usual meaning of growing a
+      // single atom from the tool. The clicked atom never joins the ring
+      // itself -- a plain carbon grows there first, exactly like any other
+      // stub click, and *that* new atom is the ring's anchor. So clicking
+      // an H stub on methane yields methylcyclohexane (methane's carbon
+      // stays a substituent), not methane's carbon turning into the ring.
+      if (state.selection?.kind === "pendingRing") {
+        const { size, aromatic } = state.selection;
+        const withAnchor = addAtomFromStub(state.graph, action.atomId, "C", 1);
+        const anchorId = String(state.graph.nextId);
+        if (!canInsertRing(withAnchor, anchorId, aromatic)) return state; // e.g. a ring already exists; stays armed
+        return withMutation(state, addRing(withAnchor, anchorId, size, aromatic), { selection: null });
+      }
       return withMutation(
         state,
         addAtomFromStub(state.graph, action.atomId, state.tool.element, state.tool.bondOrder),
       );
+    }
+
+    case "SELECT_RING":
+      return { ...state, selection: { kind: "pendingRing", size: action.size, aromatic: action.aromatic } };
 
     case "SET_STYLE":
       return { ...state, style: action.style };
@@ -112,7 +135,11 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         if (selection.atomId === state.graph.rootId) return state; // the seed can't be deleted
         return withMutation(state, deleteAtomSubtree(state.graph, selection.atomId), { selection: null });
       }
-      return withMutation(state, deleteBond(state.graph, selection.atomIdA, selection.atomIdB), { selection: null });
+      if (selection.kind === "bond") {
+        return withMutation(state, deleteBond(state.graph, selection.atomIdA, selection.atomIdB), { selection: null });
+      }
+      // pendingRing: nothing in the graph to delete yet -- Delete just cancels the arm, same as Escape.
+      return { ...state, selection: null };
     }
 
     case "CLEAR_MOLECULE":
