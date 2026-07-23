@@ -1,5 +1,7 @@
-import type { BondOrder, MoleculeGraph } from "../graph/types";
+import { useState } from "react";
+import type { BondOrder, Element, MoleculeGraph } from "../graph/types";
 import { findRing, isAromaticRing, openSlotCount, ringBondKeys } from "../graph/queries";
+import { addAtomFromStub } from "../graph/mutations";
 import { angularDistance } from "../layout/hydrogens";
 import {
   computeAngleIns,
@@ -15,6 +17,7 @@ import type { RenderStyle, LabelSpec } from "../styles/types";
 import type { Selection } from "../state/editorReducer";
 import { AtomView } from "./Atom";
 import { BondView, DEFAULT_STROKE, DEFAULT_STROKE_WIDTH } from "./Bond";
+import { GhostLayer } from "./GhostLayer";
 import { HydrogenView } from "./Hydrogen";
 import { StubView } from "./Stub";
 
@@ -22,6 +25,17 @@ interface MoleculeEditorProps {
   graph: MoleculeGraph;
   style: RenderStyle;
   selection: Selection;
+  /** The element/bond-order the next stub click would place — needed to compute the stub-hover preview below. */
+  tool: { element: Element; bondOrder: BondOrder };
+  /**
+   * An externally-computed candidate graph to preview, for pending edits that
+   * don't originate from a hovered stub (e.g. a later feature hovering a
+   * toolbar element/bond-order swatch while an atom/bond is selected). Pass
+   * null/undefined when there's nothing pending. Ignored while a stub/hydrogen
+   * is itself hovered, since that hover always wins — see GhostLayer's
+   * contract for how to build one of these.
+   */
+  previewGraph?: MoleculeGraph | null;
   onStubActivate: (atomId: string) => void;
   onAtomActivate: (atomId: string) => void;
   onBondActivate: (atomIdA: string, atomIdB: string) => void;
@@ -106,11 +120,40 @@ export function MoleculeEditor({
   graph,
   style,
   selection,
+  tool,
+  previewGraph: externalPreviewGraph,
   onStubActivate,
   onAtomActivate,
   onBondActivate,
   onCanvasActivate,
 }: MoleculeEditorProps) {
+  // Which stub/hydrogen (by the atom id it would grow from) is currently
+  // hovered, if any — the local UI state a hover preview is derived from.
+  // Guarded against out-of-order enter/leave events across two different
+  // stubs: a leave only clears the state if it's still the one that set it.
+  const [hoveredStubAtomId, setHoveredStubAtomId] = useState<string | null>(null);
+  function handleStubHover(atomId: string, hovering: boolean) {
+    setHoveredStubAtomId((current) => {
+      if (hovering) return atomId;
+      return current === atomId ? null : current;
+    });
+  }
+
+  // The candidate graph a stub hover previews: exactly the transform its
+  // click would perform. Falls back to whatever preview a caller passed in
+  // (e.g. a later feature's own hovered pending edit) when no stub is
+  // hovered; a stub hover always takes priority since it's the more specific,
+  // more immediate signal.
+  let stubPreviewGraph: MoleculeGraph | null = null;
+  if (hoveredStubAtomId !== null) {
+    try {
+      stubPreviewGraph = addAtomFromStub(graph, hoveredStubAtomId, tool.element, tool.bondOrder);
+    } catch {
+      stubPreviewGraph = null;
+    }
+  }
+  const previewGraph = stubPreviewGraph ?? externalPreviewGraph ?? null;
+
   const positions = layoutFromRoot(graph, style);
   const angleIns = computeAngleIns(graph, style);
   const bondAngles = computeBondAngles(graph, style);
@@ -171,6 +214,13 @@ export function MoleculeEditor({
       style={{ width: "100%", height: "100%" }}
       onPointerDown={onCanvasActivate}
     >
+      <GhostLayer
+        baseGraph={graph}
+        basePositions={positions}
+        baseLabels={labels}
+        previewGraph={previewGraph}
+        style={style}
+      />
       {renderedBonds.map((bond) => (
         <BondView
           key={bond.key}
@@ -216,11 +266,17 @@ export function MoleculeEditor({
             isGrowthTarget={target !== undefined}
             stubPosition={target ? growthStubPositions.get(hydrogen.atomId) : undefined}
             onActivate={() => onStubActivate(hydrogen.atomId)}
+            onHoverChange={(hovering) => handleStubHover(hydrogen.atomId, hovering)}
           />
         );
       })}
       {stubs.map((stub) => (
-        <StubView key={`${stub.atomId}-${stub.slot}`} stub={stub} onActivate={onStubActivate} />
+        <StubView
+          key={`${stub.atomId}-${stub.slot}`}
+          stub={stub}
+          onActivate={onStubActivate}
+          onHoverChange={(hovering) => handleStubHover(stub.atomId, hovering)}
+        />
       ))}
       {graph.atoms.map((atom) => (
         <AtomView

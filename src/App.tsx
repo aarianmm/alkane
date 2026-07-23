@@ -108,6 +108,7 @@ function App() {
           graph={state.graph}
           style={style}
           selection={selection}
+          tool={state.tool}
           onStubActivate={(atomId) => dispatch({ type: "GROW_ATOM", atomId })}
           onAtomActivate={(atomId) => dispatch({ type: "SELECT_ATOM", atomId })}
           onBondActivate={(atomIdA, atomIdB) => dispatch({ type: "SELECT_BOND", atomIdA, atomIdB })}

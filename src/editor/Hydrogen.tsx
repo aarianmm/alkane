@@ -17,6 +17,8 @@ interface HydrogenViewProps {
   /** A point just past the hydrogen, in the direction of growth — where the always-visible stub dot renders. Only meaningful when isGrowthTarget. */
   stubPosition?: Point;
   onActivate: () => void;
+  /** Reports hover state changes so a parent can render a hover preview — see GhostLayer. Only ever called when isGrowthTarget. Optional: nothing here depends on it. */
+  onHoverChange?: (hovering: boolean) => void;
 }
 
 /**
@@ -28,7 +30,7 @@ interface HydrogenViewProps {
  * it, in the direction growth would continue, so the affordance reads at a
  * glance instead of only revealing itself on hover.
  */
-export function HydrogenView({ position, isGrowthTarget, stubPosition, onActivate }: HydrogenViewProps) {
+export function HydrogenView({ position, isGrowthTarget, stubPosition, onActivate, onHoverChange }: HydrogenViewProps) {
   const [hovered, setHovered] = useState(false);
   const highlighted = isGrowthTarget && hovered;
 
@@ -42,8 +44,22 @@ export function HydrogenView({ position, isGrowthTarget, stubPosition, onActivat
             }
           : undefined
       }
-      onPointerEnter={isGrowthTarget ? () => setHovered(true) : undefined}
-      onPointerLeave={isGrowthTarget ? () => setHovered(false) : undefined}
+      onPointerEnter={
+        isGrowthTarget
+          ? () => {
+              setHovered(true);
+              onHoverChange?.(true);
+            }
+          : undefined
+      }
+      onPointerLeave={
+        isGrowthTarget
+          ? () => {
+              setHovered(false);
+              onHoverChange?.(false);
+            }
+          : undefined
+      }
       style={{ cursor: isGrowthTarget ? "pointer" : "default" }}
     >
       {isGrowthTarget && <circle cx={position.x} cy={position.y} r={HIT_RADIUS} fill="transparent" />}

@@ -9,9 +9,11 @@ const DOT_RADIUS_HOVER = 4.5;
 interface StubViewProps {
   stub: GrowthTarget;
   onActivate: (atomId: string) => void;
+  /** Reports hover state changes so a parent can render a hover preview — see GhostLayer. Optional: nothing here depends on it. */
+  onHoverChange?: (hovering: boolean) => void;
 }
 
-export function StubView({ stub, onActivate }: StubViewProps) {
+export function StubView({ stub, onActivate, onHoverChange }: StubViewProps) {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -20,8 +22,14 @@ export function StubView({ stub, onActivate }: StubViewProps) {
         event.stopPropagation();
         onActivate(stub.atomId);
       }}
-      onPointerEnter={() => setHovered(true)}
-      onPointerLeave={() => setHovered(false)}
+      onPointerEnter={() => {
+        setHovered(true);
+        onHoverChange?.(true);
+      }}
+      onPointerLeave={() => {
+        setHovered(false);
+        onHoverChange?.(false);
+      }}
       style={{ cursor: "pointer" }}
     >
       <circle cx={stub.position.x} cy={stub.position.y} r={HIT_RADIUS} fill="transparent" />
