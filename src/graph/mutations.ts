@@ -1,5 +1,5 @@
-import type { Atom, BondOrder, Element, MoleculeGraph } from "./types";
-import { findRing, hasRing, openSlotCount } from "./queries";
+import { PERIODIC_TABLE, type Atom, type BondOrder, type Element, type MoleculeGraph } from "./types";
+import { canInsertRing, findRing, hasRing, openSlotCount, usedValency } from "./queries";
 
 function getAtom(graph: MoleculeGraph, id: string): Atom {
   const atom = graph.atoms.find((a) => a.id === id);
@@ -219,4 +219,107 @@ export function deleteBond(graph: MoleculeGraph, atomIdA: string, atomIdB: strin
     return { ...graph, atoms: edgeRemoved };
   }
   return { ...graph, atoms: edgeRemoved.filter((a) => reachable.has(a.id)) };
+}
+
+/**
+ * Trims the lowest-priority bonds off `atomId` until its used valency fits
+ * within `targetValency` — the shared "make this atom legal again after its
+ * element/valency shrank" primitive, reused by both the element-replace and
+ * (later) bond-order-replace features. The parent edge (the bond back toward
+ * root) is never touched, so the atom always keeps its path to root; every
+ * other bond is a candidate.
+ *
+ * Each cut is applied with `deleteBond`, so it inherits that function's
+ * ring-aware behavior for free: cutting a ring bond just reopens the ring
+ * (nothing is disconnected, since the rest of the ring is still reachable the
+ * other way around), while cutting a plain tree bond prunes that whole
+ * branch, exactly like `deleteAtomSubtree`. Candidates are therefore ranked
+ * by how many atoms a cut would actually cost (cheapest first, so ring bonds
+ * and small leaf branches go before anything substantial), tie-broken by
+ * preferring the highest slot ordinal — the least-primary, most branch-like
+ * attachment — so the main chain continuation (slot 1) survives longest.
+ *
+ * A no-op (valency already fits) returns `graph` itself unchanged. If the
+ * atom runs out of trimmable bonds before reaching the target (only the
+ * parent edge is left, and its own order still overshoots), pruning stops
+ * there — this never touches the parent bond's order, which is outside this
+ * helper's scope.
+ */
+export function pruneToFitValency(
+  graph: MoleculeGraph,
+  atomId: string,
+  targetValency: number,
+): MoleculeGraph {
+  let current = graph;
+
+  while (usedValency(getAtom(current, atomId)) > targetValency) {
+    const atom = getAtom(current, atomId);
+    const candidates = atom.bonds.filter((bond) => bond.to !== atom.parentId);
+    if (candidates.length === 0) break;
+
+    let bestTo: string | null = null;
+    let bestCost = Infinity;
+    let bestSlot = -Infinity;
+    for (const bond of candidates) {
+      const without = deleteBond(current, atomId, bond.to);
+      const cost = current.atoms.length - without.atoms.length;
+      const neighbor = getAtom(current, bond.to);
+      const slot = neighbor.parentId === atomId ? (neighbor.slotFromParent ?? 0) : Infinity;
+
+      const better =
+        bestTo === null ||
+        cost < bestCost ||
+        (cost === bestCost && slot > bestSlot) ||
+        (cost === bestCost && slot === bestSlot && Number(bond.to) > Number(bestTo));
+      if (better) {
+        bestTo = bond.to;
+        bestCost = cost;
+        bestSlot = slot;
+      }
+    }
+
+    current = deleteBond(current, atomId, bestTo!);
+  }
+
+  return current;
+}
+
+/**
+ * Retypes `atomId` to `element`, first pruning whatever branches don't fit
+ * the new element's valency so the atom never ends up hypervalent. Bonds
+ * that still fit are left untouched. This is the click-to-replace counterpart
+ * to `RETYPE_SELECTED_ATOM`, which deliberately skips pruning.
+ */
+export function retypeAtomWithPrune(
+  graph: MoleculeGraph,
+  atomId: string,
+  element: Element,
+): MoleculeGraph {
+  const pruned = pruneToFitValency(graph, atomId, PERIODIC_TABLE[element].valency);
+  return setAtomElement(pruned, atomId, element);
+}
+
+/**
+ * Replaces the carbon at `atomId` with a ring of `size` atoms, anchored where
+ * it stood — pruning branches off it first if it doesn't already have the
+ * open valency the ring needs (2 plain / 3 aromatic). Entirely a no-op,
+ * returning `graph` unchanged, when the atom isn't a carbon, the molecule
+ * already has a ring, or there still isn't enough room after pruning: this is
+ * all-or-nothing, so a doomed attempt never leaves a partially-pruned atom
+ * behind.
+ */
+export function replaceAtomWithRing(
+  graph: MoleculeGraph,
+  atomId: string,
+  size: number,
+  aromatic: boolean,
+): MoleculeGraph {
+  const atom = getAtom(graph, atomId);
+  if (atom.element !== "C" || hasRing(graph)) return graph;
+
+  const neededOpen = aromatic ? 3 : 2;
+  const pruned = pruneToFitValency(graph, atomId, PERIODIC_TABLE.C.valency - neededOpen);
+  if (!canInsertRing(pruned, atomId, aromatic)) return graph;
+
+  return addRing(pruned, atomId, size, aromatic);
 }
