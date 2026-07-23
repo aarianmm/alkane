@@ -10,24 +10,31 @@ import { createInitialState, editorReducer } from "./state/editorReducer";
 
 function App() {
   const [state, dispatch] = useReducer(editorReducer, undefined, createInitialState);
-  const { selection } = state;
+  const { selection, deleteMode } = state;
   const nameStatus = useMoleculeName(state.graph);
 
   useEffect(() => {
-    if (selection === null) return;
-
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Delete" || event.key === "Backspace") {
-        event.preventDefault();
-        dispatch({ type: "DELETE_SELECTION" });
+        if (selection === null && !deleteMode) {
+          // Nothing selected: Delete/Backspace enters sticky delete mode.
+          event.preventDefault();
+          dispatch({ type: "TOGGLE_DELETE_MODE" });
+        } else if (selection !== null) {
+          // Backward-compatible select-then-Delete path, still works while
+          // in (or out of) delete mode.
+          event.preventDefault();
+          dispatch({ type: "DELETE_SELECTION" });
+        }
       } else if (event.key === "Escape") {
+        dispatch({ type: "EXIT_DELETE_MODE" });
         dispatch({ type: "CLEAR_SELECTION" });
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selection]);
+  }, [selection, deleteMode]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -50,7 +57,6 @@ function App() {
       ? (bondOrderBetween(state.graph, selection.atomIdA, selection.atomIdB) ?? state.tool.bondOrder)
       : state.tool.bondOrder;
 
-  const canDelete = selection !== null && !(selection.kind === "atom" && selection.atomId === state.graph.rootId);
   const style = getStyle(state.style);
   const availableStyles = Object.keys(STYLES) as StyleId[];
 
@@ -95,8 +101,10 @@ function App() {
         canSelectRing={canSelectRing}
         activeRing={activeRing}
         onSelectRing={(size, aromatic) => dispatch({ type: "SELECT_RING", size, aromatic })}
-        canDelete={canDelete}
-        onDelete={() => dispatch({ type: "DELETE_SELECTION" })}
+        deleteMode={deleteMode}
+        onDelete={() =>
+          dispatch(selection !== null ? { type: "DELETE_SELECTION" } : { type: "TOGGLE_DELETE_MODE" })
+        }
         onClear={() => dispatch({ type: "CLEAR_MOLECULE" })}
         canUndo={state.history.past.length > 0}
         canRedo={state.history.future.length > 0}
@@ -108,10 +116,20 @@ function App() {
           graph={state.graph}
           style={style}
           selection={selection}
+          deleteMode={deleteMode}
           onStubActivate={(atomId) => dispatch({ type: "GROW_ATOM", atomId })}
-          onAtomActivate={(atomId) => dispatch({ type: "SELECT_ATOM", atomId })}
-          onBondActivate={(atomIdA, atomIdB) => dispatch({ type: "SELECT_BOND", atomIdA, atomIdB })}
-          onCanvasActivate={() => dispatch({ type: "CLEAR_SELECTION" })}
+          onAtomActivate={(atomId) =>
+            dispatch(deleteMode ? { type: "DELETE_ATOM_AT", atomId } : { type: "SELECT_ATOM", atomId })
+          }
+          onBondActivate={(atomIdA, atomIdB) =>
+            dispatch(
+              deleteMode ? { type: "DELETE_BOND_AT", atomIdA, atomIdB } : { type: "SELECT_BOND", atomIdA, atomIdB },
+            )
+          }
+          onCanvasActivate={() => {
+            dispatch({ type: "EXIT_DELETE_MODE" });
+            dispatch({ type: "CLEAR_SELECTION" });
+          }}
         />
       </div>
       <NameDisplay status={nameStatus} />

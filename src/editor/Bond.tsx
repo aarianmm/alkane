@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { BondOrder } from "../graph/types";
 import type { Point } from "../layout/geometry";
 import type { LabelSpec } from "../styles/types";
@@ -10,6 +11,7 @@ const PARALLEL_OFFSET = 3.2;
 const HIT_WIDTH = 16;
 
 const ACCENT = "#2563eb";
+const DANGER = "#dc2626";
 export const DEFAULT_STROKE = "#1a1d21";
 export const DEFAULT_STROKE_WIDTH = 1.6;
 
@@ -20,6 +22,8 @@ interface BondViewProps {
   fromLabel: LabelSpec | null;
   toLabel: LabelSpec | null;
   isSelected: boolean;
+  /** While on, hovering this bond previews red -- a click will decrement its order, or sever it once it's already single. */
+  deleteMode: boolean;
   onActivate: () => void;
 }
 
@@ -34,7 +38,9 @@ function offsetsForOrder(order: BondOrder): number[] {
   }
 }
 
-export function BondView({ from, to, order, fromLabel, toLabel, isSelected, onActivate }: BondViewProps) {
+export function BondView({ from, to, order, fromLabel, toLabel, isSelected, deleteMode, onActivate }: BondViewProps) {
+  const [hovered, setHovered] = useState(false);
+  const previewDelete = deleteMode && hovered;
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const length = Math.hypot(dx, dy) || 1;
@@ -56,6 +62,8 @@ export function BondView({ from, to, order, fromLabel, toLabel, isSelected, onAc
         event.stopPropagation();
         onActivate();
       }}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
       style={{ cursor: "pointer" }}
     >
       <line
@@ -66,7 +74,11 @@ export function BondView({ from, to, order, fromLabel, toLabel, isSelected, onAc
         stroke="transparent"
         strokeWidth={HIT_WIDTH}
       />
-      <g stroke={isSelected ? ACCENT : DEFAULT_STROKE} strokeWidth={DEFAULT_STROKE_WIDTH} strokeLinecap="round">
+      <g
+        stroke={previewDelete ? DANGER : isSelected ? ACCENT : DEFAULT_STROKE}
+        strokeWidth={DEFAULT_STROKE_WIDTH}
+        strokeLinecap="round"
+      >
         {offsetsForOrder(order).map((offset) => (
           <line
             key={offset}

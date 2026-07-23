@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { Atom } from "../graph/types";
 import type { Point } from "../layout/geometry";
 import type { LabelSpec } from "../styles/types";
@@ -7,6 +7,8 @@ import type { LabelSpec } from "../styles/types";
 const HIT_RADIUS = 14;
 const SELECTION_RADIUS = 12;
 const ACCENT = "#2563eb";
+const DANGER = "#dc2626";
+const DANGER_FILL = "#fdeaea";
 
 interface AtomViewProps {
   atom: Atom;
@@ -14,6 +16,8 @@ interface AtomViewProps {
   /** What this vertex shows, from the active style's label() rule. Null = bare vertex. */
   label: LabelSpec | null;
   isSelected: boolean;
+  /** While on, hovering this atom previews red (it -- and its trimmed branch -- would be removed on click) instead of the normal selection blue. */
+  deleteMode: boolean;
   onActivate: (atomId: string) => void;
 }
 
@@ -66,21 +70,29 @@ function LabelText({ position, label, fill }: { position: Point; label: LabelSpe
   );
 }
 
-export function AtomView({ atom, position, label, isSelected, onActivate }: AtomViewProps) {
+export function AtomView({ atom, position, label, isSelected, deleteMode, onActivate }: AtomViewProps) {
+  const [hovered, setHovered] = useState(false);
+  const previewDelete = deleteMode && hovered;
+  const accent = previewDelete ? DANGER : ACCENT;
+  const highlighted = isSelected || previewDelete;
+  const highlightFill = previewDelete ? DANGER_FILL : "#eaf1ff";
+
   return (
     <g
       onPointerDown={(event) => {
         event.stopPropagation();
         onActivate(atom.id);
       }}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
       style={{ cursor: "pointer" }}
     >
       <circle cx={position.x} cy={position.y} r={HIT_RADIUS} fill="transparent" />
-      {isSelected && <circle cx={position.x} cy={position.y} r={SELECTION_RADIUS} fill="#eaf1ff" />}
+      {highlighted && <circle cx={position.x} cy={position.y} r={SELECTION_RADIUS} fill={highlightFill} />}
       {label && (
         <>
-          <circle cx={position.x} cy={position.y} r={9} fill={isSelected ? "#eaf1ff" : "#ffffff"} />
-          <LabelText position={position} label={label} fill={isSelected ? ACCENT : "#1a1d21"} />
+          <circle cx={position.x} cy={position.y} r={9} fill={highlighted ? highlightFill : "#ffffff"} />
+          <LabelText position={position} label={label} fill={highlighted ? accent : "#1a1d21"} />
         </>
       )}
     </g>

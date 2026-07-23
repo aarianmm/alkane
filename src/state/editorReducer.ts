@@ -2,6 +2,7 @@ import { createSeedGraph, type BondOrder, type Element, type MoleculeGraph } fro
 import {
   addAtomFromStub,
   addRing,
+  decrementBondOrder,
   deleteAtomSubtree,
   deleteBond,
   setAtomElement,
@@ -32,6 +33,14 @@ export interface EditorState {
     element: Element;
     bondOrder: BondOrder;
   };
+  /**
+   * Click-to-delete mode: while on, activating an atom or bond deletes (or,
+   * for a bond, decrements) it directly instead of selecting it. Entered via
+   * the Delete/Backspace key with nothing selected, or the toolbar's Delete
+   * button; exited via Escape, toggling that button again, or automatically
+   * after the next atom/bond delete.
+   */
+  deleteMode: boolean;
   /** Undo/redo only covers the graph — selection and tool are transient UI state, not edits. */
   history: History;
 }
@@ -42,6 +51,7 @@ export function createInitialState(): EditorState {
     selection: null,
     style: DEFAULT_STYLE,
     tool: { element: "C", bondOrder: 1 },
+    deleteMode: false,
     history: { past: [], future: [] },
   };
 }
@@ -58,6 +68,10 @@ export type EditorAction =
   | { type: "RETYPE_SELECTED_ATOM"; element: Element }
   | { type: "SET_SELECTED_BOND_ORDER"; order: BondOrder }
   | { type: "DELETE_SELECTION" }
+  | { type: "TOGGLE_DELETE_MODE" }
+  | { type: "EXIT_DELETE_MODE" }
+  | { type: "DELETE_ATOM_AT"; atomId: string }
+  | { type: "DELETE_BOND_AT"; atomIdA: string; atomIdB: string }
   | { type: "CLEAR_MOLECULE" }
   | { type: "UNDO" }
   | { type: "REDO" };
@@ -140,6 +154,26 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       }
       // pendingRing: nothing in the graph to delete yet -- Delete just cancels the arm, same as Escape.
       return { ...state, selection: null };
+    }
+
+    case "TOGGLE_DELETE_MODE":
+      return { ...state, deleteMode: !state.deleteMode, selection: null };
+
+    case "EXIT_DELETE_MODE":
+      return state.deleteMode ? { ...state, deleteMode: false } : state;
+
+    case "DELETE_ATOM_AT": {
+      if (action.atomId === state.graph.rootId) return state; // the seed can't be deleted
+      return withMutation(state, deleteAtomSubtree(state.graph, action.atomId), { deleteMode: false });
+    }
+
+    case "DELETE_BOND_AT": {
+      const { atomIdA, atomIdB } = action;
+      const graph = decrementBondOrder(state.graph, atomIdA, atomIdB);
+      // Only exit delete mode once the bond is actually gone -- a decrement
+      // that merely weakens a multi-order bond leaves it clickable again.
+      const bondRemoved = !graph.atoms.find((a) => a.id === atomIdA)?.bonds.some((b) => b.to === atomIdB);
+      return withMutation(state, graph, bondRemoved ? { deleteMode: false } : {});
     }
 
     case "CLEAR_MOLECULE":
