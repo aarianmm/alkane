@@ -20,6 +20,8 @@ interface AtomViewProps {
   deleteMode: boolean;
   /** False for the seed atom while delete mode is on -- it can't be deleted, so hovering it previews nothing. */
   deletable: boolean;
+  /** False when the armed toolbar element already matches this atom -- clicking would be a no-op, so hovering previews nothing. */
+  replaceable: boolean;
   onActivate: (atomId: string) => void;
 }
 
@@ -72,14 +74,24 @@ function LabelText({ position, label, fill }: { position: Point; label: LabelSpe
   );
 }
 
-export function AtomView({ atom, position, label, isSelected, deleteMode, deletable, onActivate }: AtomViewProps) {
+export function AtomView({
+  atom,
+  position,
+  label,
+  isSelected,
+  deleteMode,
+  deletable,
+  replaceable,
+  onActivate,
+}: AtomViewProps) {
   const [hovered, setHovered] = useState(false);
   const previewDelete = deleteMode && deletable && hovered;
   // Hovering previews the armed toolbar element being applied on click, same as if it were already selected.
-  const previewReplace = !deleteMode && hovered;
+  const previewReplace = !deleteMode && replaceable && hovered;
   const accent = previewDelete ? DANGER : ACCENT;
   const highlighted = isSelected || previewDelete || previewReplace;
   const highlightFill = previewDelete ? DANGER_FILL : "#eaf1ff";
+  const clickable = deleteMode ? deletable : replaceable;
 
   return (
     <g
@@ -89,7 +101,7 @@ export function AtomView({ atom, position, label, isSelected, deleteMode, deleta
       }}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
-      style={{ cursor: "pointer" }}
+      style={{ cursor: clickable ? "pointer" : "default" }}
     >
       <circle cx={position.x} cy={position.y} r={HIT_RADIUS} fill="transparent" />
       {highlighted && <circle cx={position.x} cy={position.y} r={SELECTION_RADIUS} fill={highlightFill} />}
