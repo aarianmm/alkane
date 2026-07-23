@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { closeRingBond } from "../graph/mutations";
+import { findRing } from "../graph/queries";
 import { createInitialState, editorReducer } from "./editorReducer";
 
 describe("editorReducer", () => {
@@ -30,6 +31,46 @@ describe("editorReducer", () => {
     state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "N" });
 
     expect(state.graph).toBe(before);
+  });
+});
+
+describe("ADD_RING", () => {
+  it("grows the ring through the root when nothing is selected", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "ADD_RING", size: 6, aromatic: false });
+
+    expect(state.graph.atoms).toHaveLength(6);
+    expect(findRing(state.graph)).not.toBeNull();
+  });
+
+  it("grows the ring through the selected atom instead of the root", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
+    state = editorReducer(state, { type: "SELECT_ATOM", atomId: "1" });
+
+    state = editorReducer(state, { type: "ADD_RING", size: 5, aromatic: false });
+
+    expect(findRing(state.graph)![0]).toBe("1");
+  });
+
+  it("is a no-op when insertion is illegal (a ring already exists)", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "ADD_RING", size: 6, aromatic: false });
+    const afterFirstRing = state.graph;
+
+    state = editorReducer(state, { type: "ADD_RING", size: 5, aromatic: false });
+
+    expect(state.graph).toBe(afterFirstRing);
+  });
+
+  it("is a single undo step", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "ADD_RING", size: 6, aromatic: true });
+    expect(state.graph.atoms).toHaveLength(6);
+
+    state = editorReducer(state, { type: "UNDO" });
+
+    expect(state.graph.atoms).toHaveLength(1);
   });
 });
 

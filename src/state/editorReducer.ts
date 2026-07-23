@@ -1,11 +1,13 @@
 import { createSeedGraph, type BondOrder, type Element, type MoleculeGraph } from "../graph/types";
 import {
   addAtomFromStub,
+  addRing,
   deleteAtomSubtree,
   deleteBond,
   setAtomElement,
   setBondOrder,
 } from "../graph/mutations";
+import { canInsertRing } from "../graph/queries";
 import { DEFAULT_STYLE, type StyleId } from "../styles";
 
 export type Selection =
@@ -44,6 +46,7 @@ export function createInitialState(): EditorState {
 
 export type EditorAction =
   | { type: "GROW_ATOM"; atomId: string }
+  | { type: "ADD_RING"; size: number; aromatic: boolean }
   | { type: "SET_STYLE"; style: StyleId }
   | { type: "SET_TOOL_ELEMENT"; element: Element }
   | { type: "SET_TOOL_BOND_ORDER"; bondOrder: BondOrder }
@@ -74,6 +77,12 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         state,
         addAtomFromStub(state.graph, action.atomId, state.tool.element, state.tool.bondOrder),
       );
+
+    case "ADD_RING": {
+      const anchorId = state.selection?.kind === "atom" ? state.selection.atomId : state.graph.rootId;
+      if (!canInsertRing(state.graph, anchorId, action.aromatic)) return state;
+      return withMutation(state, addRing(state.graph, anchorId, action.size, action.aromatic));
+    }
 
     case "SET_STYLE":
       return { ...state, style: action.style };
