@@ -232,6 +232,82 @@ describe("DELETE_SELECTION", () => {
   });
 });
 
+describe("delete mode", () => {
+  it("starts off", () => {
+    const state = createInitialState();
+    expect(state.deleteMode).toBe(false);
+  });
+
+  it("TOGGLE_DELETE_MODE turns it on and clears any selection", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_ATOM", atomId: state.graph.rootId });
+
+    state = editorReducer(state, { type: "TOGGLE_DELETE_MODE" });
+
+    expect(state.deleteMode).toBe(true);
+    expect(state.selection).toBeNull();
+  });
+
+  it("TOGGLE_DELETE_MODE again turns it back off", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "TOGGLE_DELETE_MODE" });
+    state = editorReducer(state, { type: "TOGGLE_DELETE_MODE" });
+
+    expect(state.deleteMode).toBe(false);
+  });
+
+  it("EXIT_DELETE_MODE turns it off and is a no-op when already off", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "TOGGLE_DELETE_MODE" });
+
+    state = editorReducer(state, { type: "EXIT_DELETE_MODE" });
+    expect(state.deleteMode).toBe(false);
+
+    const after = editorReducer(state, { type: "EXIT_DELETE_MODE" });
+    expect(after).toBe(state);
+  });
+
+  it("DELETE_ATOM_AT prunes the clicked atom's subtree and stays in delete mode", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
+    state = editorReducer(state, { type: "TOGGLE_DELETE_MODE" });
+
+    state = editorReducer(state, { type: "DELETE_ATOM_AT", atomId: "1" });
+
+    expect(state.graph.atoms).toHaveLength(1);
+    expect(state.deleteMode).toBe(true);
+  });
+
+  it("DELETE_ATOM_AT refuses to delete the seed atom", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "TOGGLE_DELETE_MODE" });
+
+    const after = editorReducer(state, { type: "DELETE_ATOM_AT", atomId: state.graph.rootId });
+
+    expect(after.graph.atoms).toHaveLength(1);
+    expect(after.deleteMode).toBe(true);
+  });
+
+  it("DELETE_BOND_AT decrements a multi-order bond, then severs it once single, staying in delete mode throughout", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SET_TOOL_BOND_ORDER", bondOrder: 3 });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1", triple-bonded
+    state = editorReducer(state, { type: "TOGGLE_DELETE_MODE" });
+
+    state = editorReducer(state, { type: "DELETE_BOND_AT", atomIdA: state.graph.rootId, atomIdB: "1" });
+    expect(state.graph.atoms[0].bonds[0].order).toBe(2);
+    expect(state.graph.atoms).toHaveLength(2);
+
+    state = editorReducer(state, { type: "DELETE_BOND_AT", atomIdA: state.graph.rootId, atomIdB: "1" });
+    expect(state.graph.atoms[0].bonds[0].order).toBe(1);
+    expect(state.graph.atoms).toHaveLength(2);
+
+    state = editorReducer(state, { type: "DELETE_BOND_AT", atomIdA: state.graph.rootId, atomIdB: "1" });
+    expect(state.graph.atoms).toHaveLength(1);
+    expect(state.deleteMode).toBe(true);
+  });
+});
+
 describe("CLEAR_MOLECULE", () => {
   it("resets to a fresh seed and clears selection", () => {
     let state = createInitialState();
