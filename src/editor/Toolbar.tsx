@@ -9,6 +9,9 @@ const BOND_ORDERS: { order: BondOrder; label: string }[] = [
   { order: 3, label: "≡" },
 ];
 
+/** The taught ring-size range. The engine names up to cyclodecane (10), but 3-8 covers what's actually taught. */
+const RING_SIZES = [3, 4, 5, 6, 7, 8];
+
 const STYLE_LABELS: Record<StyleId, string> = {
   displayed: "Displayed",
   structural: "Structural",
@@ -23,6 +26,9 @@ interface ToolbarProps {
   activeStyle: StyleId;
   availableStyles: StyleId[];
   onSelectStyle: (style: StyleId) => void;
+  canAddRing: boolean;
+  canAddAromaticRing: boolean;
+  onAddRing: (size: number, aromatic: boolean) => void;
   canDelete: boolean;
   onDelete: () => void;
   onClear: () => void;
@@ -40,6 +46,9 @@ export function Toolbar({
   activeStyle,
   availableStyles,
   onSelectStyle,
+  canAddRing,
+  canAddAromaticRing,
+  onAddRing,
   canDelete,
   onDelete,
   onClear,
@@ -75,6 +84,29 @@ export function Toolbar({
             {label}
           </button>
         ))}
+      </div>
+      <div className={styles.group} aria-label="Ring">
+        {RING_SIZES.map((size) => (
+          <button
+            key={size}
+            type="button"
+            className={styles.button}
+            disabled={!canAddRing}
+            onClick={() => onAddRing(size, false)}
+            title={`Insert a ${size}-membered ring`}
+          >
+            {size}
+          </button>
+        ))}
+        <button
+          type="button"
+          className={styles.button}
+          disabled={!canAddAromaticRing}
+          onClick={() => onAddRing(6, true)}
+          title="Insert benzene"
+        >
+          ⌬
+        </button>
       </div>
       {availableStyles.length > 1 && (
         <div className={styles.group} aria-label="Formula style">
