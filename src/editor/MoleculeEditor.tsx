@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { BondOrder, Element, MoleculeGraph } from "../graph/types";
 import { findRing, isAromaticRing, openSlotCount, ringBondKeys } from "../graph/queries";
-import { addAtomFromStub, setAtomElement } from "../graph/mutations";
+import { addAtomFromStub, setAtomElement, setBondOrder } from "../graph/mutations";
 import { angularDistance } from "../layout/hydrogens";
 import {
   computeAngleIns,
@@ -150,6 +150,17 @@ export function MoleculeEditor({
     });
   }
 
+  // Which existing bond is hovered, if any -- drives the click-to-change
+  // hover preview below. Same guarded enter/leave shape as the stub/atom
+  // hover state above, just keyed by the bond's endpoint pair.
+  const [hoveredBond, setHoveredBond] = useState<{ atomIdA: string; atomIdB: string } | null>(null);
+  function handleBondHover(atomIdA: string, atomIdB: string, hovering: boolean) {
+    setHoveredBond((current) => {
+      if (hovering) return { atomIdA, atomIdB };
+      return current?.atomIdA === atomIdA && current?.atomIdB === atomIdB ? null : current;
+    });
+  }
+
   // The candidate graph a stub hover previews: exactly the transform its
   // click would perform. Falls back to whatever preview a caller passed in
   // (e.g. a later feature's own hovered pending edit) when no stub is
@@ -179,7 +190,22 @@ export function MoleculeEditor({
     }
   }
 
-  const previewGraph = stubPreviewGraph ?? atomHoverPreviewGraph ?? externalPreviewGraph ?? null;
+  // The candidate graph a hovered *existing* bond previews: just that one
+  // bond retyped to the armed order -- deliberately un-pruned (via plain
+  // setBondOrder, not setBondOrderWithPrune), so the preview only ever shows
+  // the single changed bond, never any branch a real click-to-change might
+  // go on to trim.
+  let bondHoverPreviewGraph: MoleculeGraph | null = null;
+  if (hoveredBond !== null) {
+    try {
+      bondHoverPreviewGraph = setBondOrder(graph, hoveredBond.atomIdA, hoveredBond.atomIdB, tool.bondOrder);
+    } catch {
+      bondHoverPreviewGraph = null;
+    }
+  }
+
+  const previewGraph =
+    stubPreviewGraph ?? atomHoverPreviewGraph ?? bondHoverPreviewGraph ?? externalPreviewGraph ?? null;
 
   const positions = layoutFromRoot(graph, style);
   const angleIns = computeAngleIns(graph, style);
@@ -258,6 +284,7 @@ export function MoleculeEditor({
           toLabel={bond.toLabel}
           isSelected={isSelectedBond(selection, bond.atomIdA, bond.atomIdB)}
           onActivate={() => onBondActivate(bond.atomIdA, bond.atomIdB)}
+          onHoverChange={(hovering) => handleBondHover(bond.atomIdA, bond.atomIdB, hovering)}
         />
       ))}
       {aromaticCircle && (

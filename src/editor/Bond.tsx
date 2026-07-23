@@ -21,6 +21,8 @@ interface BondViewProps {
   toLabel: LabelSpec | null;
   isSelected: boolean;
   onActivate: () => void;
+  /** Reports hover state changes so a parent can render a hover preview — see GhostLayer. Optional: nothing here depends on it. */
+  onHoverChange?: (hovering: boolean) => void;
 }
 
 function offsetsForOrder(order: BondOrder): number[] {
@@ -34,7 +36,16 @@ function offsetsForOrder(order: BondOrder): number[] {
   }
 }
 
-export function BondView({ from, to, order, fromLabel, toLabel, isSelected, onActivate }: BondViewProps) {
+export function BondView({
+  from,
+  to,
+  order,
+  fromLabel,
+  toLabel,
+  isSelected,
+  onActivate,
+  onHoverChange,
+}: BondViewProps) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const length = Math.hypot(dx, dy) || 1;
@@ -56,6 +67,8 @@ export function BondView({ from, to, order, fromLabel, toLabel, isSelected, onAc
         event.stopPropagation();
         onActivate();
       }}
+      onPointerEnter={() => onHoverChange?.(true)}
+      onPointerLeave={() => onHoverChange?.(false)}
       style={{ cursor: "pointer" }}
     >
       <line
