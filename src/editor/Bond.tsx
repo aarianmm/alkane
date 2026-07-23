@@ -10,7 +10,8 @@ const PARALLEL_OFFSET = 3.2;
 const HIT_WIDTH = 16;
 
 const ACCENT = "#2563eb";
-const DEFAULT_STROKE = "#1a1d21";
+export const DEFAULT_STROKE = "#1a1d21";
+export const DEFAULT_STROKE_WIDTH = 1.6;
 
 interface BondViewProps {
   from: Point;
@@ -65,7 +66,7 @@ export function BondView({ from, to, order, fromLabel, toLabel, isSelected, onAc
         stroke="transparent"
         strokeWidth={HIT_WIDTH}
       />
-      <g stroke={isSelected ? ACCENT : DEFAULT_STROKE} strokeWidth={1.6} strokeLinecap="round">
+      <g stroke={isSelected ? ACCENT : DEFAULT_STROKE} strokeWidth={DEFAULT_STROKE_WIDTH} strokeLinecap="round">
         {offsetsForOrder(order).map((offset) => (
           <line
             key={offset}
