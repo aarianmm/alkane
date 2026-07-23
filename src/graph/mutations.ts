@@ -244,17 +244,25 @@ export function deleteBond(graph: MoleculeGraph, atomIdA: string, atomIdB: strin
  * parent edge is left, and its own order still overshoots), pruning stops
  * there — this never touches the parent bond's order, which is outside this
  * helper's scope.
+ *
+ * `protectedNeighborId`, when given, is excluded from the candidates exactly
+ * like the parent edge — for `setBondOrderWithPrune`, which needs to free
+ * room on an endpoint without any risk of the very bond it's raising being
+ * the one that gets cut.
  */
 export function pruneToFitValency(
   graph: MoleculeGraph,
   atomId: string,
   targetValency: number,
+  protectedNeighborId?: string,
 ): MoleculeGraph {
   let current = graph;
 
   while (usedValency(getAtom(current, atomId)) > targetValency) {
     const atom = getAtom(current, atomId);
-    const candidates = atom.bonds.filter((bond) => bond.to !== atom.parentId);
+    const candidates = atom.bonds.filter(
+      (bond) => bond.to !== atom.parentId && bond.to !== protectedNeighborId,
+    );
     if (candidates.length === 0) break;
 
     let bestTo: string | null = null;
@@ -322,4 +330,60 @@ export function replaceAtomWithRing(
   if (!canInsertRing(pruned, atomId, aromatic)) return graph;
 
   return addRing(pruned, atomId, size, aromatic);
+}
+
+/**
+ * Changes bond (atomIdA, atomIdB) to `order`, the click-to-replace
+ * counterpart to `setBondOrder`. Implicit hydrogens are just open valence
+ * slots, so raising an order first consumes those for free; only an endpoint
+ * with no open slots left (all its valency already spoken for by real bonds)
+ * needs a branch pruned to make room, via `pruneToFitValency`. Lowering an
+ * order never needs any of this — every atom just ends up with more open
+ * slots than before.
+ *
+ * The bond being edited is never a candidate for its own prune: each
+ * endpoint's prune call passes the *other* endpoint as `protectedNeighborId`,
+ * so pruning only ever trims some other branch, never the edge under edit.
+ *
+ * A no-op (returns `graph` unchanged) when the order can't fit even after
+ * pruning every other branch off both endpoints — e.g. raising a bond into
+ * an atom whose parent edge alone already uses all its valency.
+ */
+export function setBondOrderWithPrune(
+  graph: MoleculeGraph,
+  atomIdA: string,
+  atomIdB: string,
+  order: BondOrder,
+): MoleculeGraph {
+  const a = getAtom(graph, atomIdA);
+  getAtom(graph, atomIdB);
+  const oldOrder = a.bonds.find((bond) => bond.to === atomIdB)?.order;
+  if (oldOrder === undefined) throw new Error(`No bond between ${atomIdA} and ${atomIdB}`);
+
+  if (order <= oldOrder) {
+    return setBondOrder(graph, atomIdA, atomIdB, order);
+  }
+
+  // Raising: each endpoint's *other* bonds must fit within valency - order.
+  // Its used valency right now still counts the edited bond at its old
+  // order, so the equivalent target for pruneToFitValency (which looks at
+  // total used valency) is valency - order + oldOrder.
+  let pruned = graph;
+  for (const [selfId, otherId] of [
+    [atomIdA, atomIdB],
+    [atomIdB, atomIdA],
+  ] as const) {
+    const valency = PERIODIC_TABLE[getAtom(pruned, selfId).element].valency;
+    pruned = pruneToFitValency(pruned, selfId, valency - order + oldOrder, otherId);
+  }
+
+  const otherSumA = usedValency(getAtom(pruned, atomIdA)) - oldOrder;
+  const otherSumB = usedValency(getAtom(pruned, atomIdB)) - oldOrder;
+  const valencyA = PERIODIC_TABLE[getAtom(pruned, atomIdA).element].valency;
+  const valencyB = PERIODIC_TABLE[getAtom(pruned, atomIdB).element].valency;
+  if (otherSumA + order > valencyA || otherSumB + order > valencyB) {
+    return graph; // degenerate: can't fit without cutting the edited bond itself
+  }
+
+  return setBondOrder(pruned, atomIdA, atomIdB, order);
 }

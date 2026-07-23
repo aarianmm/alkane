@@ -11,6 +11,7 @@ import {
   retypeAtomWithPrune,
   setAtomElement,
   setBondOrder,
+  setBondOrderWithPrune,
 } from "./mutations";
 import {
   bondOrderBetween,
@@ -117,6 +118,74 @@ describe("setBondOrder", () => {
     let graph = createSeedGraph();
     graph = addAtomFromStub(graph, graph.rootId, "O", 1);
     expect(() => setBondOrder(graph, graph.rootId, "does-not-exist", 2)).toThrow();
+  });
+});
+
+describe("setBondOrderWithPrune", () => {
+  it("raises an order with nothing to prune when both endpoints have free slots", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1"
+
+    graph = setBondOrderWithPrune(graph, graph.rootId, "1", 2);
+
+    expect(graph.atoms).toHaveLength(2); // nothing pruned
+    expect(bondOrderBetween(graph, graph.rootId, "1")).toBe(2);
+    expect(bondOrderBetween(graph, "1", graph.rootId)).toBe(2);
+  });
+
+  it("trims a branch off a saturated endpoint to make room for the raise", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1"
+    graph = addAtomFromStub(graph, "1", "O", 1); // "2", slot 1 off "1"
+    graph = addAtomFromStub(graph, "1", "N", 1); // "3", slot 2 off "1"
+    graph = addAtomFromStub(graph, "1", "F", 1); // "4", slot 3 off "1" -- "1" now fully saturated
+    expect(usedValency(findAtomById(graph, "1")!)).toBe(4);
+
+    graph = setBondOrderWithPrune(graph, graph.rootId, "1", 2);
+
+    expect(bondOrderBetween(graph, graph.rootId, "1")).toBe(2);
+    expect(findAtomById(graph, "4")).toBeUndefined(); // highest-slot branch pruned
+    expect(findAtomById(graph, "2")).toBeDefined();
+    expect(findAtomById(graph, "3")).toBeDefined();
+    expect(usedValency(findAtomById(graph, "1")!)).toBe(4); // legal again, not hypervalent
+  });
+
+  it("lowers an order without touching any other branches", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 2); // "1", double parent bond
+    graph = addAtomFromStub(graph, "1", "C", 1); // "2"
+    graph = addAtomFromStub(graph, "1", "C", 1); // "3"
+
+    graph = setBondOrderWithPrune(graph, graph.rootId, "1", 1);
+
+    expect(bondOrderBetween(graph, graph.rootId, "1")).toBe(1);
+    expect(findAtomById(graph, "2")).toBeDefined();
+    expect(findAtomById(graph, "3")).toBeDefined();
+  });
+
+  it("is a no-op when the new order alone overshoots an endpoint's own nominal valency", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "F", 1); // "1", fluorine, valency 1
+
+    const result = setBondOrderWithPrune(graph, graph.rootId, "1", 2);
+
+    expect(result).toBe(graph);
+  });
+
+  it("is a no-op when an endpoint's un-prunable parent edge alone blocks the raise", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "N", 1); // "1", parent edge -- never prunable
+    graph = addAtomFromStub(graph, "1", "C", 1); // "2", the bond we'll try to raise
+
+    const result = setBondOrderWithPrune(graph, "1", "2", 3);
+
+    expect(result).toBe(graph);
+    expect(bondOrderBetween(graph, "1", "2")).toBe(1);
+  });
+
+  it("throws when there is no such bond", () => {
+    const graph = createSeedGraph();
+    expect(() => setBondOrderWithPrune(graph, graph.rootId, "missing", 2)).toThrow();
   });
 });
 
