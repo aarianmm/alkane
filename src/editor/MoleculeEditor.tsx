@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { BondOrder, Element, MoleculeGraph } from "../graph/types";
 import { findRing, isAromaticRing, openSlotCount, ringBondKeys } from "../graph/queries";
-import { addAtomFromStub } from "../graph/mutations";
+import { addAtomFromStub, setAtomElement } from "../graph/mutations";
 import { angularDistance } from "../layout/hydrogens";
 import {
   computeAngleIns,
@@ -139,6 +139,17 @@ export function MoleculeEditor({
     });
   }
 
+  // Which existing graph atom (as opposed to a stub) is hovered, if any --
+  // drives the click-to-replace hover preview below. Same guarded
+  // enter/leave shape as the stub hover state above.
+  const [hoveredAtomId, setHoveredAtomId] = useState<string | null>(null);
+  function handleAtomHover(atomId: string, hovering: boolean) {
+    setHoveredAtomId((current) => {
+      if (hovering) return atomId;
+      return current === atomId ? null : current;
+    });
+  }
+
   // The candidate graph a stub hover previews: exactly the transform its
   // click would perform. Falls back to whatever preview a caller passed in
   // (e.g. a later feature's own hovered pending edit) when no stub is
@@ -152,7 +163,23 @@ export function MoleculeEditor({
       stubPreviewGraph = null;
     }
   }
-  const previewGraph = stubPreviewGraph ?? externalPreviewGraph ?? null;
+
+  // The candidate graph a hovered *existing* atom previews: just that one
+  // atom retyped to the armed element -- deliberately un-pruned, so the
+  // preview only ever shows the single changed atom, never the branches a
+  // real click-to-replace might go on to trim (see retypeAtomWithPrune).
+  // A pending ring is a "massive" change (a whole ring replacing one atom),
+  // so it's deliberately never previewed -- no candidate graph at all.
+  let atomHoverPreviewGraph: MoleculeGraph | null = null;
+  if (hoveredAtomId !== null && selection?.kind !== "pendingRing") {
+    try {
+      atomHoverPreviewGraph = setAtomElement(graph, hoveredAtomId, tool.element);
+    } catch {
+      atomHoverPreviewGraph = null;
+    }
+  }
+
+  const previewGraph = stubPreviewGraph ?? atomHoverPreviewGraph ?? externalPreviewGraph ?? null;
 
   const positions = layoutFromRoot(graph, style);
   const angleIns = computeAngleIns(graph, style);
@@ -286,6 +313,7 @@ export function MoleculeEditor({
           label={labels.get(atom.id) ?? null}
           isSelected={isSelectedAtom(selection, atom.id)}
           onActivate={onAtomActivate}
+          onHoverChange={(hovering) => handleAtomHover(atom.id, hovering)}
         />
       ))}
     </svg>

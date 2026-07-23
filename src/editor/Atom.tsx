@@ -15,6 +15,8 @@ interface AtomViewProps {
   label: LabelSpec | null;
   isSelected: boolean;
   onActivate: (atomId: string) => void;
+  /** Reports hover state changes so a parent can render a hover preview — see GhostLayer. Optional: nothing here depends on it. */
+  onHoverChange?: (hovering: boolean) => void;
 }
 
 const LABEL_FONT_SIZE = 14;
@@ -66,13 +68,15 @@ function LabelText({ position, label, fill }: { position: Point; label: LabelSpe
   );
 }
 
-export function AtomView({ atom, position, label, isSelected, onActivate }: AtomViewProps) {
+export function AtomView({ atom, position, label, isSelected, onActivate, onHoverChange }: AtomViewProps) {
   return (
     <g
       onPointerDown={(event) => {
         event.stopPropagation();
         onActivate(atom.id);
       }}
+      onPointerEnter={() => onHoverChange?.(true)}
+      onPointerLeave={() => onHoverChange?.(false)}
       style={{ cursor: "pointer" }}
     >
       <circle cx={position.x} cy={position.y} r={HIT_RADIUS} fill="transparent" />
