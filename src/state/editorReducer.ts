@@ -75,12 +75,19 @@ function withMutation(state: EditorState, graph: MoleculeGraph, extra: Partial<E
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case "GROW_ATOM": {
-      // A stub click means "insert the armed ring here" while one's pending,
-      // instead of its usual meaning of growing a single atom from the tool.
+      // A stub click means "hang the armed ring off this open valence"
+      // while one's pending, instead of its usual meaning of growing a
+      // single atom from the tool. The clicked atom never joins the ring
+      // itself -- a plain carbon grows there first, exactly like any other
+      // stub click, and *that* new atom is the ring's anchor. So clicking
+      // an H stub on methane yields methylcyclohexane (methane's carbon
+      // stays a substituent), not methane's carbon turning into the ring.
       if (state.selection?.kind === "pendingRing") {
         const { size, aromatic } = state.selection;
-        if (!canInsertRing(state.graph, action.atomId, aromatic)) return state; // stays armed; try a different stub
-        return withMutation(state, addRing(state.graph, action.atomId, size, aromatic), { selection: null });
+        const withAnchor = addAtomFromStub(state.graph, action.atomId, "C", 1);
+        const anchorId = String(state.graph.nextId);
+        if (!canInsertRing(withAnchor, anchorId, aromatic)) return state; // e.g. a ring already exists; stays armed
+        return withMutation(state, addRing(withAnchor, anchorId, size, aromatic), { selection: null });
       }
       return withMutation(
         state,
