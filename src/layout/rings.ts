@@ -83,10 +83,9 @@ const RING_SUBSTITUENT_FAN = 45;
 /**
  * Angle for a ring atom's `slot`-th non-ring attachment (H or a grown
  * substituent) — a symmetric fan about the outward radial, standing in for
- * the chain styles' `childAngle` rule, which doesn't apply to ring vertices
- * (see Cyclic-Ring-Plan.md, "Override 2"). `slotCount` is always 0, 1, or 2
- * for the supported element set (valency <= 4, minus the 2 ring-bond
- * directions).
+ * the chain styles' `childAngle` rule, which doesn't apply to ring vertices.
+ * `slotCount` is always 0, 1, or 2 for the supported element set (valency
+ * <= 4, minus the 2 ring-bond directions).
  */
 export function ringSubstituentAngle(outward: number, slot: number, slotCount: number): number {
   if (slotCount <= 1) return outward;

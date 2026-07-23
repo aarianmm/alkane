@@ -97,13 +97,13 @@ export function closeRingBond(
 
 /**
  * Grows a ring of `size` carbons through `anchorId` — the toolbar's one-click
- * insertion, and the only way a cycle enters the graph (see
- * Cyclic-Ring-Plan.md). Composes `addAtomFromStub` for the chain plus
- * `closeRingBond` for the closing edge; `aromatic` (size 6 only) stamps the
- * Kekule alternation (2,1,2,1,2 then closing 1) so every ring atom ends up
- * with exactly one single + one double ring bond. Display never shows this
- * Kekule pattern for benzene — that's a derived rendering choice, not stored
- * here (see graph/queries.ts's isAromaticRing and MoleculeEditor).
+ * insertion, and the only way a cycle enters the graph. Composes
+ * `addAtomFromStub` for the chain plus `closeRingBond` for the closing edge;
+ * `aromatic` (size 6 only) stamps the Kekule alternation (2,1,2,1,2 then
+ * closing 1) so every ring atom ends up with exactly one single + one double
+ * ring bond. Display never shows this Kekule pattern for benzene — that's a
+ * derived rendering choice, not stored here (see graph/queries.ts's
+ * isAromaticRing and MoleculeEditor).
  */
 export function addRing(
   graph: MoleculeGraph,

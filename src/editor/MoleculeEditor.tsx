@@ -130,10 +130,10 @@ export function MoleculeEditor({
   const hydrogens = computeHydrogenPlacements(graph, style);
 
   // Benzene renders with the modern inscribed circle, never its stored
-  // Kekule lines — a pure display choice derived fresh every render (see
-  // Cyclic-Ring-Plan.md section 5), so hand-alternating a ring's bonds into
-  // a full 1/2 cycle flips this on automatically, and dropping any one bond
-  // back to single flips it off again.
+  // Kekule lines — a pure display choice derived fresh every render, so
+  // hand-alternating a ring's bonds into a full 1/2 cycle flips this on
+  // automatically, and dropping any one bond back to single flips it off
+  // again.
   const ring = findRing(graph);
   const aromatic = ring !== null && isAromaticRing(graph, ring);
   const aromaticKeys = aromatic ? ringBondKeys(ring!) : null;

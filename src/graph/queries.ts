@@ -111,12 +111,11 @@ function treePathBetween(graph: MoleculeGraph, atomIdA: string, atomIdB: string)
 /**
  * The molecule's one ring, as an ordered atom-id cycle starting from the
  * atom nearest the root (the anchor the ring was grown through) — or null
- * for a plain chain. Purely a rendering/layout query, derived fresh from the
- * graph every time: see Cyclic-Ring-Plan.md section 1 for why this lives
- * here rather than as stored state, and section on why it's not naming
- * logic (the engine does its own independent ring detection for IUPAC
- * rules; this exists only so the editor can lay the ring out as a polygon
- * and decide which bonds to draw).
+ * for a plain chain. Derived fresh from the graph every time, like `hasRing`
+ * above; no ring state is ever stored. This is a rendering/layout query, not
+ * naming logic — the engine does its own independent ring detection for
+ * IUPAC rules over the API; this exists only so the editor can lay the ring
+ * out as a polygon and decide which bonds to draw.
  */
 export function findRing(graph: MoleculeGraph): string[] | null {
   if (!hasRing(graph)) return null;
