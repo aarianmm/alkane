@@ -1,13 +1,15 @@
-import { createSeedGraph, type BondOrder, type Element, type MoleculeGraph } from "../graph/types";
+import { createSeedGraph, PERIODIC_TABLE, type BondOrder, type Element, type MoleculeGraph } from "../graph/types";
 import {
   addAtomFromStub,
   addRing,
   deleteAtomSubtree,
   deleteBond,
+  replaceAtomWithRing,
+  retypeAtomWithPrune,
   setAtomElement,
   setBondOrder,
 } from "../graph/mutations";
-import { canInsertRing } from "../graph/queries";
+import { canInsertRing, findAtomById, usedValency } from "../graph/queries";
 import { DEFAULT_STYLE, type StyleId } from "../styles";
 
 export type Selection =
@@ -48,6 +50,7 @@ export function createInitialState(): EditorState {
 
 export type EditorAction =
   | { type: "GROW_ATOM"; atomId: string }
+  | { type: "REPLACE_ATOM"; atomId: string }
   | { type: "SELECT_RING"; size: number; aromatic: boolean }
   | { type: "SET_STYLE"; style: StyleId }
   | { type: "SET_TOOL_ELEMENT"; element: Element }
@@ -93,6 +96,33 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         state,
         addAtomFromStub(state.graph, action.atomId, state.tool.element, state.tool.bondOrder),
       );
+    }
+
+    // Clicking an existing atom applies whatever's currently armed on the
+    // toolbar to it directly -- no pre-selection step required. A pending
+    // ring replaces the clicked atom in place (unlike GROW_ATOM's pending-ring
+    // handling, which grows a fresh anchor from a stub first); a plain
+    // element retypes the atom, pruning whatever branches don't fit the new
+    // valency. Bonds/undo/redo all still flow through withMutation.
+    case "REPLACE_ATOM": {
+      if (state.selection?.kind === "pendingRing") {
+        const { size, aromatic } = state.selection;
+        const next = replaceAtomWithRing(state.graph, action.atomId, size, aromatic);
+        if (next === state.graph) return state; // couldn't fit / not a carbon / ring already exists -- stays armed
+        return withMutation(state, next, { selection: null });
+      }
+
+      const atom = findAtomById(state.graph, action.atomId);
+      if (!atom) return state;
+      const { element } = state.tool;
+      if (atom.element === element && usedValency(atom) <= PERIODIC_TABLE[element].valency) {
+        // Already the armed element and already valid -- nothing to mutate,
+        // just make it the active selection.
+        return { ...state, selection: { kind: "atom", atomId: action.atomId } };
+      }
+      return withMutation(state, retypeAtomWithPrune(state.graph, action.atomId, element), {
+        selection: { kind: "atom", atomId: action.atomId },
+      });
     }
 
     case "SELECT_RING":

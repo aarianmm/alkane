@@ -110,7 +110,7 @@ function App() {
           selection={selection}
           tool={state.tool}
           onStubActivate={(atomId) => dispatch({ type: "GROW_ATOM", atomId })}
-          onAtomActivate={(atomId) => dispatch({ type: "SELECT_ATOM", atomId })}
+          onAtomActivate={(atomId) => dispatch({ type: "REPLACE_ATOM", atomId })}
           onBondActivate={(atomIdA, atomIdB) => dispatch({ type: "SELECT_BOND", atomIdA, atomIdB })}
           onCanvasActivate={() => dispatch({ type: "CLEAR_SELECTION" })}
         />
