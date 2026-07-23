@@ -139,20 +139,49 @@ describe("deleteAtomSubtree", () => {
     expect(() => deleteAtomSubtree(graph, graph.rootId)).toThrow();
   });
 
-  it("only shortens a ring, leaving the rest connected", () => {
-    // Six-carbon ring: seed(0)-1-2-3-4-5-back to seed.
+  it("deletes the whole ring, anchor included, when any of its atoms is deleted", () => {
+    // methyl(seed) - anchor - [5-ring]
     let graph = createSeedGraph();
-    for (let i = 0; i < 5; i++) {
-      const parent = i === 0 ? graph.rootId : String(i);
-      graph = addAtomFromStub(graph, parent, "C", 1);
-    }
-    graph = closeRingBond(graph, "5", graph.rootId, 1);
-    expect(hasRing(graph)).toBe(true);
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // anchor = "1"
+    graph = addRing(graph, "1", 5, false);
+    expect(graph.atoms).toHaveLength(6);
 
+    graph = deleteAtomSubtree(graph, "3"); // some non-anchor ring atom
+
+    expect(graph.atoms.map((a) => a.id).sort()).toEqual([graph.rootId]);
+    expect(hasRing(graph)).toBe(false);
+    expect(openSlotCount(findAtomById(graph, graph.rootId)!)).toBe(4); // back to a bare, unbonded seed
+  });
+
+  it("deletes a substituent hanging off a different ring atom along with the ring", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // anchor = "1"
+    graph = addRing(graph, "1", 6, false);
+    graph = addAtomFromStub(graph, "3", "O", 1); // hydroxyl off a ring atom other than the one we'll delete
+
+    graph = deleteAtomSubtree(graph, "5");
+
+    expect(graph.atoms.map((a) => a.id).sort()).toEqual([graph.rootId]);
+  });
+
+  it("removes an aromatic ring the same way as a plain one", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // anchor = "1"
+    graph = addRing(graph, "1", 6, true);
+
+    graph = deleteAtomSubtree(graph, "4");
+
+    expect(graph.atoms.map((a) => a.id).sort()).toEqual([graph.rootId]);
+    expect(hasRing(graph)).toBe(false);
+  });
+
+  it("keeps the seed atom even when it's a ring member itself, opening the ring instead", () => {
+    const seed = createSeedGraph();
+    let graph = addRing(seed, seed.rootId, 6, false);
     graph = deleteAtomSubtree(graph, "3");
 
-    expect(graph.atoms).toHaveLength(5);
-    expect(hasRing(graph)).toBe(false); // ring is now an open chain
+    expect(findAtomById(graph, seed.rootId)).toBeDefined();
+    expect(hasRing(graph)).toBe(false);
   });
 });
 

@@ -1,5 +1,5 @@
 import type { Atom, BondOrder, Element, MoleculeGraph } from "./types";
-import { hasRing, openSlotCount } from "./queries";
+import { findRing, hasRing, openSlotCount } from "./queries";
 
 function getAtom(graph: MoleculeGraph, id: string): Atom {
   const atom = graph.atoms.find((a) => a.id === id);
@@ -171,20 +171,27 @@ export function setBondOrder(
 
 /**
  * Deletes an atom and everything reachable only through it (the "prune the
- * branch" deletion model). Works for both a plain chain tip and a ring atom:
- * removing a ring atom just shortens the ring, since the rest of it stays
- * reachable from the root via the other way round.
+ * branch" deletion model). A ring atom has two ways back to the root — its
+ * own chain and the ring-closing edge — so pruning just that one atom would
+ * leave the rest of the ring dangling off the anchor as a pair of open
+ * chains instead of disappearing. Deleting any ring atom (aromatic or not)
+ * therefore removes the whole ring; everything else still only reachable
+ * through it is pruned the same way as a plain chain tip.
  */
 export function deleteAtomSubtree(graph: MoleculeGraph, atomId: string): MoleculeGraph {
   if (atomId === graph.rootId) throw new Error("Cannot delete the seed atom");
   getAtom(graph, atomId);
 
-  const withoutAtom = graph.atoms
-    .filter((a) => a.id !== atomId)
-    .map((a) => ({ ...a, bonds: a.bonds.filter((b) => b.to !== atomId) }));
+  const ring = findRing(graph);
+  const toDelete =
+    ring?.includes(atomId) ? new Set(ring.filter((id) => id !== graph.rootId)) : new Set([atomId]);
 
-  const reachable = reachableFrom(withoutAtom, graph.rootId);
-  return { ...graph, atoms: withoutAtom.filter((a) => reachable.has(a.id)) };
+  const withoutAtoms = graph.atoms
+    .filter((a) => !toDelete.has(a.id))
+    .map((a) => ({ ...a, bonds: a.bonds.filter((b) => !toDelete.has(b.to)) }));
+
+  const reachable = reachableFrom(withoutAtoms, graph.rootId);
+  return { ...graph, atoms: withoutAtoms.filter((a) => reachable.has(a.id)) };
 }
 
 /**
