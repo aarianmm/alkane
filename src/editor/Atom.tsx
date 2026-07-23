@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Atom } from "../graph/types";
 import type { Point } from "../layout/geometry";
 import type { LabelSpec } from "../styles/types";
@@ -16,31 +17,51 @@ interface AtomViewProps {
   onActivate: (atomId: string) => void;
 }
 
+const LABEL_FONT_SIZE = 14;
+const SUBSCRIPT_FONT_SIZE = 10;
+/** Half the label font's cap height: shifts the alphabetic baseline down so glyphs centre on the atom position, in place of `dominant-baseline`, which WebKit resolves inconsistently for mixed bare-text/tspan children. */
+const BASELINE_CENTER_OFFSET = 5;
+/** Vertical drop for the subscript digit(s), via `dy` rather than `baseline-shift` — the latter is unreliable across renderers once sibling text has a different font-size. */
+const SUBSCRIPT_DROP = 3;
+
 function LabelText({ position, label, fill }: { position: Point; label: LabelSpec; fill: string }) {
-  const hydrogenPart = label.hydrogenCount > 0 && (
-    <tspan>
-      H
-      {label.hydrogenCount > 1 && (
-        <tspan baselineShift="sub" fontSize={10}>
-          {label.hydrogenCount}
+  const subscript = label.hydrogenCount > 1 ? String(label.hydrogenCount) : null;
+  const hydrogen = label.hydrogenCount > 0 ? "H" : "";
+
+  let content: ReactNode;
+  if (subscript === null) {
+    content = label.hydrogenSide === "before" ? `${hydrogen}${label.main}` : `${label.main}${hydrogen}`;
+  } else if (label.hydrogenSide === "before") {
+    content = (
+      <>
+        <tspan>H</tspan>
+        <tspan dy={SUBSCRIPT_DROP} fontSize={SUBSCRIPT_FONT_SIZE}>
+          {subscript}
         </tspan>
-      )}
-    </tspan>
-  );
+        <tspan dy={-SUBSCRIPT_DROP}>{label.main}</tspan>
+      </>
+    );
+  } else {
+    content = (
+      <>
+        <tspan>{label.main}H</tspan>
+        <tspan dy={SUBSCRIPT_DROP} fontSize={SUBSCRIPT_FONT_SIZE}>
+          {subscript}
+        </tspan>
+      </>
+    );
+  }
 
   return (
     <text
       x={position.x}
-      y={position.y}
+      y={position.y + BASELINE_CENTER_OFFSET}
       textAnchor="middle"
-      dominantBaseline="central"
-      fontSize={14}
+      fontSize={LABEL_FONT_SIZE}
       fontFamily="system-ui, sans-serif"
       fill={fill}
     >
-      {label.hydrogenSide === "before" && hydrogenPart}
-      {label.main}
-      {label.hydrogenSide === "after" && hydrogenPart}
+      {content}
     </text>
   );
 }
