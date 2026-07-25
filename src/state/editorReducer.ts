@@ -4,19 +4,15 @@ import {
   addRing,
   decrementBondOrder,
   deleteAtomSubtree,
-  deleteBond,
   replaceAtomWithRing,
   retypeAtomWithPrune,
-  setAtomElement,
-  setBondOrder,
+  setBondOrderWithPrune,
 } from "../graph/mutations";
-import { canInsertRing, findAtomById, usedValency } from "../graph/queries";
+import { bondOrderBetween, canInsertRing, findAtomById, usedValency } from "../graph/queries";
 import { DEFAULT_STYLE, type StyleId } from "../styles";
 
 export type Selection =
-  | { kind: "atom"; atomId: string }
-  | { kind: "bond"; atomIdA: string; atomIdB: string }
-  /** A ring size (and aromaticity) armed from the toolbar, waiting for the next stub click to say where it grows — the same "held, then applied to whatever's clicked" shape as an atom/bond selection, just not pointing at an existing graph element yet. */
+  /** A ring size (and aromaticity) armed from the toolbar, waiting for the next stub click to say where it grows. There's no other kind of selection -- an atom or bond is never "selected", only ever pressed, which applies the armed tool directly. */
   | { kind: "pendingRing"; size: number; aromatic: boolean }
   | null;
 
@@ -37,10 +33,9 @@ export interface EditorState {
   };
   /**
    * Click-to-delete mode: while on, activating an atom or bond deletes (or,
-   * for a bond, decrements) it directly instead of selecting it. Entered via
-   * the Delete/Backspace key with nothing selected, or the toolbar's Delete
-   * button; exited via Escape, toggling that button again, or automatically
-   * after the next atom/bond delete.
+   * for a bond, decrements) it directly. Entered via the Delete/Backspace
+   * key, or the toolbar's Delete button; exited via Escape, toggling that
+   * button again, or automatically after the next atom/bond delete.
    */
   deleteMode: boolean;
   /** Undo/redo only covers the graph — selection and tool are transient UI state, not edits. */
@@ -65,12 +60,8 @@ export type EditorAction =
   | { type: "SET_STYLE"; style: StyleId }
   | { type: "SET_TOOL_ELEMENT"; element: Element }
   | { type: "SET_TOOL_BOND_ORDER"; bondOrder: BondOrder }
-  | { type: "SELECT_ATOM"; atomId: string }
-  | { type: "SELECT_BOND"; atomIdA: string; atomIdB: string }
+  | { type: "REPLACE_BOND"; atomIdA: string; atomIdB: string }
   | { type: "CLEAR_SELECTION" }
-  | { type: "RETYPE_SELECTED_ATOM"; element: Element }
-  | { type: "SET_SELECTED_BOND_ORDER"; order: BondOrder }
-  | { type: "DELETE_SELECTION" }
   | { type: "TOGGLE_DELETE_MODE" }
   | { type: "EXIT_DELETE_MODE" }
   | { type: "DELETE_ATOM_AT"; atomId: string }
@@ -130,13 +121,10 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       if (!atom) return state;
       const { element } = state.tool;
       if (atom.element === element && usedValency(atom) <= PERIODIC_TABLE[element].valency) {
-        // Already the armed element and already valid -- nothing to mutate,
-        // just make it the active selection.
-        return { ...state, selection: { kind: "atom", atomId: action.atomId } };
+        // Already the armed element and already valid -- true no-op.
+        return state;
       }
-      return withMutation(state, retypeAtomWithPrune(state.graph, action.atomId, element), {
-        selection: { kind: "atom", atomId: action.atomId },
-      });
+      return withMutation(state, retypeAtomWithPrune(state.graph, action.atomId, element));
     }
 
     case "SELECT_RING":
@@ -145,46 +133,38 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case "SET_STYLE":
       return { ...state, style: action.style };
 
+    // Arming an element un-arms any pending ring -- an atom and a ring are
+    // both things the user "holds" for the next stub/atom click, and only
+    // one can be held at a time.
     case "SET_TOOL_ELEMENT":
-      return { ...state, tool: { ...state.tool, element: action.element } };
+      return { ...state, tool: { ...state.tool, element: action.element }, selection: null };
 
     case "SET_TOOL_BOND_ORDER":
       return { ...state, tool: { ...state.tool, bondOrder: action.bondOrder } };
 
-    case "SELECT_ATOM":
-      return { ...state, selection: { kind: "atom", atomId: action.atomId } };
+    // Clicking an existing bond applies whatever bond order is currently
+    // armed on the toolbar to it directly -- the same "click applies the
+    // tool" shape as REPLACE_ATOM. Valency is kept legal via
+    // setBondOrderWithPrune, which prunes a branch on an endpoint only if
+    // raising the order needs more room than its open (implicit-hydrogen)
+    // slots provide.
+    case "REPLACE_BOND": {
+      const { atomIdA, atomIdB } = action;
+      const order = bondOrderBetween(state.graph, atomIdA, atomIdB);
+      if (order === undefined) return state; // no such bond
 
-    case "SELECT_BOND":
-      return { ...state, selection: { kind: "bond", atomIdA: action.atomIdA, atomIdB: action.atomIdB } };
+      if (order === state.tool.bondOrder) {
+        // Already the armed order -- true no-op.
+        return state;
+      }
+
+      const next = setBondOrderWithPrune(state.graph, atomIdA, atomIdB, state.tool.bondOrder);
+      if (next === state.graph) return state; // degenerate: can't fit without cutting the edited bond
+      return withMutation(state, next);
+    }
 
     case "CLEAR_SELECTION":
       return state.selection === null ? state : { ...state, selection: null };
-
-    case "RETYPE_SELECTED_ATOM": {
-      if (state.selection?.kind !== "atom") return state;
-      return withMutation(state, setAtomElement(state.graph, state.selection.atomId, action.element));
-    }
-
-    case "SET_SELECTED_BOND_ORDER": {
-      if (state.selection?.kind !== "bond") return state;
-      const { atomIdA, atomIdB } = state.selection;
-      return withMutation(state, setBondOrder(state.graph, atomIdA, atomIdB, action.order));
-    }
-
-    case "DELETE_SELECTION": {
-      const selection = state.selection;
-      if (selection === null) return state;
-
-      if (selection.kind === "atom") {
-        if (selection.atomId === state.graph.rootId) return state; // the seed can't be deleted
-        return withMutation(state, deleteAtomSubtree(state.graph, selection.atomId), { selection: null });
-      }
-      if (selection.kind === "bond") {
-        return withMutation(state, deleteBond(state.graph, selection.atomIdA, selection.atomIdB), { selection: null });
-      }
-      // pendingRing: nothing in the graph to delete yet -- Delete just cancels the arm, same as Escape.
-      return { ...state, selection: null };
-    }
 
     case "TOGGLE_DELETE_MODE":
       return { ...state, deleteMode: !state.deleteMode, selection: null };

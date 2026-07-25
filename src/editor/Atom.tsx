@@ -5,7 +5,7 @@ import type { LabelSpec } from "../styles/types";
 
 /** Invisible hit area, large enough for touch/stylus. Bare (unlabelled) vertices stay clickable too. */
 const HIT_RADIUS = 14;
-const SELECTION_RADIUS = 12;
+const HIGHLIGHT_RADIUS = 12;
 const ACCENT = "#2563eb";
 const DANGER = "#dc2626";
 const DANGER_FILL = "#fdeaea";
@@ -15,7 +15,6 @@ interface AtomViewProps {
   position: Point;
   /** What this vertex shows, from the active style's label() rule. Null = bare vertex. */
   label: LabelSpec | null;
-  isSelected: boolean;
   /** While on, hovering this atom previews red (it -- and its trimmed branch -- would be removed on click) instead of the replace-preview blue below. */
   deleteMode: boolean;
   /** False for the seed atom while delete mode is on -- it can't be deleted, so hovering it previews nothing. */
@@ -74,22 +73,13 @@ function LabelText({ position, label, fill }: { position: Point; label: LabelSpe
   );
 }
 
-export function AtomView({
-  atom,
-  position,
-  label,
-  isSelected,
-  deleteMode,
-  deletable,
-  replaceable,
-  onActivate,
-}: AtomViewProps) {
+export function AtomView({ atom, position, label, deleteMode, deletable, replaceable, onActivate }: AtomViewProps) {
   const [hovered, setHovered] = useState(false);
   const previewDelete = deleteMode && deletable && hovered;
-  // Hovering previews the armed toolbar element being applied on click, same as if it were already selected.
+  // Hovering previews the armed toolbar element being applied on click.
   const previewReplace = !deleteMode && replaceable && hovered;
   const accent = previewDelete ? DANGER : ACCENT;
-  const highlighted = isSelected || previewDelete || previewReplace;
+  const highlighted = previewDelete || previewReplace;
   const highlightFill = previewDelete ? DANGER_FILL : "#eaf1ff";
   const clickable = deleteMode ? deletable : replaceable;
 
@@ -104,7 +94,7 @@ export function AtomView({
       style={{ cursor: clickable ? "pointer" : "default" }}
     >
       <circle cx={position.x} cy={position.y} r={HIT_RADIUS} fill="transparent" />
-      {highlighted && <circle cx={position.x} cy={position.y} r={SELECTION_RADIUS} fill={highlightFill} />}
+      {highlighted && <circle cx={position.x} cy={position.y} r={HIGHLIGHT_RADIUS} fill={highlightFill} />}
       {label && (
         <>
           <circle cx={position.x} cy={position.y} r={9} fill={highlighted ? highlightFill : "#ffffff"} />

@@ -22,10 +22,12 @@ interface MoleculeEditorProps {
   graph: MoleculeGraph;
   style: RenderStyle;
   selection: Selection;
-  /** While on, hovering an atom/bond previews red (about to be deleted/trimmed) instead of the normal selection blue. */
+  /** While on, hovering an atom/bond previews red (about to be deleted/trimmed) instead of the normal replace-preview blue. */
   deleteMode: boolean;
   /** The element the next atom click will apply -- also used to tell whether hovering a given atom would actually change it. */
   armedElement: Element;
+  /** The bond order the next bond click will apply -- also used to tell whether hovering a given bond would actually change it. */
+  armedBondOrder: BondOrder;
   onStubActivate: (atomId: string) => void;
   onAtomActivate: (atomId: string) => void;
   onBondActivate: (atomIdA: string, atomIdB: string) => void;
@@ -85,18 +87,6 @@ function centroid(points: Point[]): Point {
   return { x: sum.x / points.length, y: sum.y / points.length };
 }
 
-function isSelectedAtom(selection: Selection, atomId: string): boolean {
-  return selection?.kind === "atom" && selection.atomId === atomId;
-}
-
-function isSelectedBond(selection: Selection, atomIdA: string, atomIdB: string): boolean {
-  return (
-    selection?.kind === "bond" &&
-    ((selection.atomIdA === atomIdA && selection.atomIdB === atomIdB) ||
-      (selection.atomIdA === atomIdB && selection.atomIdB === atomIdA))
-  );
-}
-
 // A pending ring always changes something concrete when it lands (there's no
 // single "already this" element to compare against), so only a plain armed
 // element -- already equal to the atom's own -- counts as a no-op.
@@ -106,7 +96,10 @@ function isReplaceableAtom(selection: Selection, armedElement: Element, atomElem
 
 /**
  * Renders the molecule graph as SVG and turns pointer activity into editing
- * requests (grow from a stub, select an atom/bond, deselect on empty canvas).
+ * requests (grow from a stub, apply the armed tool to a pressed atom/bond).
+ * An atom or bond is never "selected" -- pressing one applies the toolbar's
+ * armed value directly. `selection` only ever holds a pending ring armed
+ * from the toolbar, waiting for the next click.
  * This component only draws the graph — it must never be the source of
  * chemical meaning (see Alkane-Implementation-Plan.md). All angle and label
  * decisions come from `style` (see src/styles) so the same graph renders
@@ -119,6 +112,7 @@ export function MoleculeEditor({
   selection,
   deleteMode,
   armedElement,
+  armedBondOrder,
   onStubActivate,
   onAtomActivate,
   onBondActivate,
@@ -139,6 +133,10 @@ export function MoleculeEditor({
   );
 
   const bonds = collectBonds(graph, positions, labels);
+  // Aromatic rings render every bond at order 1 below (the Kekule lines never
+  // show), so the hover no-op check needs each bond's real stored order, not
+  // its display order.
+  const trueBondOrders = new Map(bonds.map((bond) => [bond.key, bond.order]));
   const growthTargets = computeGrowthTargets(graph, style);
   const hydrogens = computeHydrogenPlacements(graph, style);
 
@@ -192,8 +190,9 @@ export function MoleculeEditor({
           order={bond.order}
           fromLabel={bond.fromLabel}
           toLabel={bond.toLabel}
-          isSelected={isSelectedBond(selection, bond.atomIdA, bond.atomIdB)}
           deleteMode={deleteMode}
+          interactive
+          replaceable={trueBondOrders.get(bond.key) !== armedBondOrder}
           onActivate={() => onBondActivate(bond.atomIdA, bond.atomIdB)}
         />
       ))}
@@ -215,8 +214,9 @@ export function MoleculeEditor({
           order={1}
           fromLabel={labels.get(hydrogen.atomId) ?? null}
           toLabel={{ main: "H", hydrogenCount: 0, hydrogenSide: "after" }}
-          isSelected={false}
           deleteMode={false}
+          interactive={false}
+          replaceable={false}
           onActivate={() => {}}
         />
       ))}
@@ -243,7 +243,6 @@ export function MoleculeEditor({
           atom={atom}
           position={positions.get(atom.id)!}
           label={labels.get(atom.id) ?? null}
-          isSelected={isSelectedAtom(selection, atom.id)}
           deleteMode={deleteMode}
           deletable={atom.id !== graph.rootId}
           replaceable={isReplaceableAtom(selection, armedElement, atom.element)}

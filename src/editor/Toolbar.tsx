@@ -19,7 +19,8 @@ const STYLE_LABELS: Record<StyleId, string> = {
 };
 
 interface ToolbarProps {
-  activeElement: Element;
+  /** The held element, or null while a ring is held instead -- an atom and a ring can't both be held at once. */
+  activeElement: Element | null;
   activeBondOrder: BondOrder;
   onSelectElement: (element: Element) => void;
   onSelectBondOrder: (order: BondOrder) => void;
@@ -152,9 +153,7 @@ export function Toolbar({
           aria-pressed={deleteMode}
           onClick={onDelete}
           title={
-            deleteMode
-              ? "Click an atom or bond to delete it (Esc to exit)"
-              : "Delete the current selection, or click to enter delete mode"
+            deleteMode ? "Click an atom or bond to delete it (Esc to exit)" : "Click to enter delete mode"
           }
         >
           Delete
