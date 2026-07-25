@@ -123,10 +123,126 @@ describe("GROW_ATOM with a pending ring armed", () => {
   });
 });
 
+describe("SELECT_GROUP", () => {
+  it("arms a pending group without touching the graph or history", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_GROUP", groupId: "hydroxyl" });
+
+    expect(state.selection).toEqual({ kind: "pendingGroup", groupId: "hydroxyl" });
+    expect(state.graph.atoms).toHaveLength(1);
+    expect(state.history.past).toHaveLength(0);
+  });
+
+  it("replaces whatever group was armed before", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_GROUP", groupId: "hydroxyl" });
+    state = editorReducer(state, { type: "SELECT_GROUP", groupId: "amine" });
+
+    expect(state.selection).toEqual({ kind: "pendingGroup", groupId: "amine" });
+  });
+
+  it("clears a pending ring, and a pending ring clears a pending group -- only one can be held at a time", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+
+    state = editorReducer(state, { type: "SELECT_GROUP", groupId: "hydroxyl" });
+    expect(state.selection).toEqual({ kind: "pendingGroup", groupId: "hydroxyl" });
+
+    state = editorReducer(state, { type: "SELECT_RING", size: 5, aromatic: false });
+    expect(state.selection).toEqual({ kind: "pendingRing", size: 5, aromatic: false });
+  });
+
+  it("arming an element un-arms a pending group", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_GROUP", groupId: "hydroxyl" });
+
+    state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "O" });
+
+    expect(state.selection).toBeNull();
+    expect(state.tool.element).toBe("O");
+  });
+});
+
+describe("GROW_ATOM with a pending group armed", () => {
+  it("grows the group off the clicked stub and disarms it", () => {
+    let state = createInitialState(); // seed carbon, methane
+    state = editorReducer(state, { type: "SELECT_GROUP", groupId: "hydroxyl" });
+
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+
+    expect(state.graph.atoms).toHaveLength(2);
+    const grown = state.graph.atoms.find((a) => a.id !== state.graph.rootId)!;
+    expect(grown.element).toBe("O");
+    expect(state.selection).toBeNull();
+  });
+
+  it("is a single undo step", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_GROUP", groupId: "carboxylicAcid" });
+
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+    expect(state.graph.atoms).toHaveLength(4); // methane's C + the group's 3 atoms
+
+    state = editorReducer(state, { type: "UNDO" });
+    expect(state.graph.atoms).toHaveLength(1);
+  });
+
+  it("stays armed and leaves the graph untouched when the stub's parent has no open slot", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "2"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "3"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "4" -- root now saturated
+    state = editorReducer(state, { type: "SELECT_GROUP", groupId: "hydroxyl" });
+    const before = state.graph;
+
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+
+    expect(state.graph).toBe(before);
+    expect(state.selection).toEqual({ kind: "pendingGroup", groupId: "hydroxyl" });
+  });
+});
+
+describe("REPLACE_ATOM with a pending group armed", () => {
+  it("replaces the clicked carbon with the armed group and disarms it", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1", carbon
+    state = editorReducer(state, { type: "SELECT_GROUP", groupId: "amine" });
+
+    state = editorReducer(state, { type: "REPLACE_ATOM", atomId: "1" });
+
+    expect(findAtomById(state.graph, "1")!.element).toBe("N");
+    expect(state.selection).toBeNull();
+  });
+
+  it("stays armed and leaves the graph untouched through an invalid target", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "I" });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1", iodine
+    state = editorReducer(state, { type: "SELECT_GROUP", groupId: "carboxylicAcid" });
+    const before = state.graph;
+
+    state = editorReducer(state, { type: "REPLACE_ATOM", atomId: "1" });
+
+    expect(state.graph).toBe(before);
+    expect(state.selection).toEqual({ kind: "pendingGroup", groupId: "carboxylicAcid" });
+  });
+});
+
 describe("CLEAR_SELECTION", () => {
   it("cancels a pending ring arm without touching the graph", () => {
     let state = createInitialState();
     state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+
+    state = editorReducer(state, { type: "CLEAR_SELECTION" });
+
+    expect(state.selection).toBeNull();
+    expect(state.graph.atoms).toHaveLength(1);
+  });
+
+  it("cancels a pending group arm without touching the graph -- also what Escape does via App's key handler", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_GROUP", groupId: "amide" });
 
     state = editorReducer(state, { type: "CLEAR_SELECTION" });
 
