@@ -148,6 +148,25 @@ export function findRing(graph: MoleculeGraph): string[] | null {
   return null; // unreachable: hasRing() true guarantees a non-tree edge exists
 }
 
+/**
+ * `atomId`'s two ring neighbours, in ring order — or `[]` when it isn't on
+ * the molecule's ring at all (including when there's no ring). Used to find
+ * which bonds a ring-preserving replace must protect from pruning.
+ */
+export function ringNeighborIds(graph: MoleculeGraph, atomId: string): string[] {
+  const ring = findRing(graph);
+  if (!ring) return [];
+  const i = ring.indexOf(atomId);
+  if (i === -1) return [];
+  const n = ring.length;
+  return [ring[(i - 1 + n) % n], ring[(i + 1) % n]];
+}
+
+/** Whether the graph still has at least one carbon atom left in it. */
+export function hasCarbon(graph: MoleculeGraph): boolean {
+  return graph.atoms.some((a) => a.element === "C");
+}
+
 /** The ring's bonds as the same sorted `a-b` keys `collectBonds` renders with — which bonds get the aromatic circle's effective-single-order treatment. */
 export function ringBondKeys(ring: string[]): Set<string> {
   const keys = new Set<string>();

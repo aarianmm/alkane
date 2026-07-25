@@ -1,12 +1,12 @@
 import { PERIODIC_TABLE, type BondOrder, type Element, type MoleculeGraph } from "./types";
 import {
   addAtomFromStub,
-  canHostOccupant,
   pruneForOccupant,
+  ringReplaceProtection,
   setAtomElement,
   type OccupantFootprint,
 } from "./mutations";
-import { findAtomById, openSlotCount } from "./queries";
+import { findAtomById, hasCarbon, openSlotCount } from "./queries";
 
 /**
  * The carbon-based functional groups the naming engine actually recognizes.
@@ -220,8 +220,9 @@ export function addFunctionalGroupFromStub(
 }
 
 /**
- * Whether `atomId` is a legal target for replacing-in-place with `groupId`.
- * Two separate questions, and worth keeping separate:
+ * Whether `atomId` is a legal target for replacing-in-place with `groupId`,
+ * and what the graph looks like afterward -- shared by `canReplaceWithGroup`
+ * and `replaceAtomWithFunctionalGroup` so the two can never disagree.
  *
  * Only a carbon atom may be replaced -- these are all carbon-based
  * functional groups, substituents that stand in for a carbon-skeleton
@@ -230,17 +231,40 @@ export function addFunctionalGroupFromStub(
  * chemistry, not about valency, so it stays here rather than in the shared
  * footprint machinery, which has no opinion on what the target used to be.
  *
- * Everything after that *is* pure valency arithmetic, and is exactly the
- * question `canHostOccupant` answers for a ring or a plain element too.
+ * After that: Rule A (`ringReplaceProtection`) gates and protects a
+ * ring-member target, then the shared footprint arithmetic (exactly what
+ * `canHostOccupant` answers for a ring or a plain element too) decides
+ * whether the group fits, and finally Rule B declines any result that would
+ * leave the molecule with no carbon left at all (e.g. dropping nitro onto a
+ * lone carbon).
  */
+function attemptGroupReplace(
+  graph: MoleculeGraph,
+  atomId: string,
+  groupId: FunctionalGroupId,
+): MoleculeGraph | null {
+  const atom = findAtomById(graph, atomId);
+  if (!atom || atom.element !== "C") return null;
+
+  const spec = FUNCTIONAL_GROUPS[groupId];
+  const footprint = groupFootprint(spec);
+  const protection = ringReplaceProtection(graph, atomId, spec.atoms[0].element, footprint);
+  if (!protection.allowed) return null;
+
+  const pruned = pruneForOccupant(graph, atomId, footprint, protection.protectedNeighborIds);
+  if (!pruned) return null;
+
+  const retyped = setAtomElement(pruned, atomId, spec.atoms[0].element);
+  const grown = growFragmentAtoms(retyped, atomId, spec).graph;
+  return hasCarbon(grown) ? grown : null;
+}
+
 export function canReplaceWithGroup(
   graph: MoleculeGraph,
   atomId: string,
   groupId: FunctionalGroupId,
 ): boolean {
-  const atom = findAtomById(graph, atomId);
-  if (!atom || atom.element !== "C") return false;
-  return canHostOccupant(graph, atomId, groupFootprint(FUNCTIONAL_GROUPS[groupId]));
+  return attemptGroupReplace(graph, atomId, groupId) !== null;
 }
 
 /**
@@ -267,19 +291,16 @@ export function canReplaceWithGroup(
  * affect the arithmetic -- a footprint is only ever the room left over) and
  * before the rest of the group's atoms are grown off it, so those fragment
  * atoms land on whatever slots the surviving branches left open.
+ *
+ * Two more ways the gate can decline, both in `attemptGroupReplace`: a
+ * ring-member target whose ring bonds the group can't keep (Rule A -- see
+ * `ringReplaceProtection`), and a group that would leave the molecule with no
+ * carbon left in it at all (Rule B -- e.g. nitro onto a lone carbon).
  */
 export function replaceAtomWithFunctionalGroup(
   graph: MoleculeGraph,
   atomId: string,
   groupId: FunctionalGroupId,
 ): MoleculeGraph {
-  const atom = findAtomById(graph, atomId);
-  if (!atom || atom.element !== "C") return graph;
-
-  const spec = FUNCTIONAL_GROUPS[groupId];
-  const pruned = pruneForOccupant(graph, atomId, groupFootprint(spec));
-  if (!pruned) return graph;
-
-  const retyped = setAtomElement(pruned, atomId, spec.atoms[0].element);
-  return growFragmentAtoms(retyped, atomId, spec).graph;
+  return attemptGroupReplace(graph, atomId, groupId) ?? graph;
 }

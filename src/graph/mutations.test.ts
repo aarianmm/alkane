@@ -688,9 +688,12 @@ describe("retypeAtomWithPrune -- the parent edge gate", () => {
 
   it("never declines on the root seed atom, which has no parent edge to protect", () => {
     // Every bond the root has is a candidate, so a shrinking retype can
-    // always reach a legal state by dropping branches.
+    // always reach a legal state by dropping branches. A second carbon is
+    // kept around so the result still has a carbon in it (Rule B) -- the
+    // cheaper double-bonded "1" is what gets pruned instead.
     let graph = createSeedGraph();
     graph = addAtomFromStub(graph, "0", "C", 2); // "1", double-bonded off the root
+    graph = addAtomFromStub(graph, "0", "C", 1); // "2"
 
     const retyped = retypeAtomWithPrune(graph, "0", "I");
 
