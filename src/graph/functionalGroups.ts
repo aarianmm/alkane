@@ -1,6 +1,12 @@
 import { PERIODIC_TABLE, type BondOrder, type Element, type MoleculeGraph } from "./types";
-import { addAtomFromStub, pruneToFitValency, setAtomElement } from "./mutations";
-import { bondOrderBetween, findAtomById, openSlotCount } from "./queries";
+import {
+  addAtomFromStub,
+  canHostOccupant,
+  pruneForOccupant,
+  setAtomElement,
+  type OccupantFootprint,
+} from "./mutations";
+import { findAtomById, openSlotCount } from "./queries";
 
 /**
  * The carbon-based functional groups the naming engine actually recognizes.
@@ -129,10 +135,9 @@ function attachmentInternalUsedValency(spec: FunctionalGroupSpec): number {
  * deliberate carve-out: nitro's nitrogen is the engine's one legal
  * hypervalent form, R-N(=O)(=O), which already runs to 5 (1 to R + 2 + 2)
  * rather than nitrogen's nominal 3. Budgeting it at 5 up front -- instead of
- * special-casing every caller that would otherwise reject it -- means the
- * ordinary arithmetic in `canAttachmentCarryOrder` and
- * `replaceAtomWithFunctionalGroup` just works for nitro too, with no
- * separate branch.
+ * special-casing every caller that would otherwise reject it -- is what lets
+ * a group be described by the same `OccupantFootprint` as a plain element or
+ * a ring, with no branch anywhere for nitro.
  */
 function attachmentTotalBudget(spec: FunctionalGroupSpec): number {
   if (spec.id === "nitro") return 5;
@@ -140,14 +145,18 @@ function attachmentTotalBudget(spec: FunctionalGroupSpec): number {
 }
 
 /**
- * Whether the group's attachment atom has room to carry a parent bond of
- * `order` on top of its own fixed internal structure, without the atom
- * ending up hypervalent (see `attachmentTotalBudget` for how nitro's one
- * legal hypervalent form is folded into this same check rather than
- * special-cased here).
+ * A group expressed in the shared currency every replacement uses (see
+ * `OccupantFootprint`): the attachment atom's budget, and the part of it the
+ * group's own =O / -OH / triple bond / etc. has already spent. Once a group
+ * is stated this way it needs no bespoke valency logic at all -- the same
+ * `pruneForOccupant` that handles retyping an atom or dropping in a ring
+ * handles it too.
  */
-function canAttachmentCarryOrder(spec: FunctionalGroupSpec, order: BondOrder): boolean {
-  return attachmentInternalUsedValency(spec) + order <= attachmentTotalBudget(spec);
+function groupFootprint(spec: FunctionalGroupSpec): OccupantFootprint {
+  return {
+    budget: attachmentTotalBudget(spec),
+    internalUsed: attachmentInternalUsedValency(spec),
+  };
 }
 
 /** Grows a group's non-attachment atoms (spec index 1+) off an attachment atom that already exists in `graph` at `attachmentId`. Composes `addAtomFromStub` per fragment atom, so ids/slots/nextId all come out consistent for free. */
@@ -194,15 +203,17 @@ export function addFunctionalGroupFromStub(
 
 /**
  * Whether `atomId` is a legal target for replacing-in-place with `groupId`.
+ * Two separate questions, and worth keeping separate:
+ *
  * Only a carbon atom may be replaced -- these are all carbon-based
  * functional groups, substituents that stand in for a carbon-skeleton
  * position, not a general "swap any atom for any group" operation (the same
- * restriction `canInsertRing` places on ring anchors). Beyond that, the
- * group's attachment atom must be able to carry the target's existing
- * parent bond at its current order -- the one part of the target's role
- * that's never negotiable, since bond-preservation (see
- * `replaceAtomWithFunctionalGroup`) is free to drop every other bond but must
- * always keep the path back to the root.
+ * restriction `canInsertRing` places on ring anchors). That's a rule about
+ * chemistry, not about valency, so it stays here rather than in the shared
+ * footprint machinery, which has no opinion on what the target used to be.
+ *
+ * Everything after that *is* pure valency arithmetic, and is exactly the
+ * question `canHostOccupant` answers for a ring or a plain element too.
  */
 export function canReplaceWithGroup(
   graph: MoleculeGraph,
@@ -211,10 +222,7 @@ export function canReplaceWithGroup(
 ): boolean {
   const atom = findAtomById(graph, atomId);
   if (!atom || atom.element !== "C") return false;
-  if (!atom.parentId) return true; // the seed atom has no parent edge to preserve
-
-  const parentOrder = bondOrderBetween(graph, atomId, atom.parentId)!;
-  return canAttachmentCarryOrder(FUNCTIONAL_GROUPS[groupId], parentOrder);
+  return canHostOccupant(graph, atomId, groupFootprint(FUNCTIONAL_GROUPS[groupId]));
 }
 
 /**
@@ -238,24 +246,21 @@ export function canReplaceWithGroup(
  * them.
  *
  * The prune runs before the target atom is retyped (its element doesn't
- * affect the arithmetic -- `pruneToFitValency` is only ever told the target
- * valency to prune down to) and before the rest of the group's atoms are
- * grown off it, so those fragment atoms land on whatever slots the surviving
- * branches left open.
+ * affect the arithmetic -- a footprint is only ever the room left over) and
+ * before the rest of the group's atoms are grown off it, so those fragment
+ * atoms land on whatever slots the surviving branches left open.
  */
 export function replaceAtomWithFunctionalGroup(
   graph: MoleculeGraph,
   atomId: string,
   groupId: FunctionalGroupId,
 ): MoleculeGraph {
-  if (!canReplaceWithGroup(graph, atomId, groupId)) return graph;
+  const atom = findAtomById(graph, atomId);
+  if (!atom || atom.element !== "C") return graph;
 
   const spec = FUNCTIONAL_GROUPS[groupId];
-  const target = findAtomById(graph, atomId)!;
-  const parentId = target.parentId;
-
-  const spareForOtherBonds = attachmentTotalBudget(spec) - attachmentInternalUsedValency(spec);
-  const pruned = pruneToFitValency(graph, atomId, spareForOtherBonds, parentId);
+  const pruned = pruneForOccupant(graph, atomId, groupFootprint(spec));
+  if (!pruned) return graph;
 
   const retyped = setAtomElement(pruned, atomId, spec.atoms[0].element);
   return growFragmentAtoms(retyped, atomId, spec).graph;

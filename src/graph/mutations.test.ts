@@ -3,16 +3,21 @@ import { createSeedGraph } from "./types";
 import {
   addAtomFromStub,
   addRing,
+  canReplaceAtomWithRing,
+  canRetypeAtom,
   closeRingBond,
   decrementBondOrder,
   deleteAtomSubtree,
   deleteBond,
+  elementFootprint,
   pruneToFitValency,
   replaceAtomWithRing,
   retypeAtomWithPrune,
+  ringFootprint,
   setAtomElement,
   setBondOrder,
   setBondOrderWithPrune,
+  spareForExistingBonds,
 } from "./mutations";
 import {
   bondOrderBetween,
@@ -603,5 +608,107 @@ describe("deleteBond", () => {
     graph = deleteBond(graph, graph.rootId, "1");
 
     expect(graph.atoms.map((a) => a.id)).toEqual([graph.rootId]);
+  });
+});
+
+describe("occupant footprints", () => {
+  it("states an element, a ring, and an aromatic ring in the same currency", () => {
+    // A plain element brings no bonds of its own, so its whole budget is
+    // available to the target's existing bonds. A ring spends two of the
+    // anchor carbon's four slots on itself, an aromatic ring three (the
+    // Kekule alternation needs a double bond in the ring).
+    expect(spareForExistingBonds(elementFootprint("C"))).toBe(4);
+    expect(spareForExistingBonds(elementFootprint("O"))).toBe(2);
+    expect(spareForExistingBonds(elementFootprint("I"))).toBe(1);
+    expect(spareForExistingBonds(ringFootprint(false))).toBe(2);
+    expect(spareForExistingBonds(ringFootprint(true))).toBe(1);
+  });
+});
+
+describe("retypeAtomWithPrune -- the parent edge gate", () => {
+  it("refuses an element whose valency the parent bond alone overshoots", () => {
+    // Iodine's valency is 1, but the target is held to its parent by a
+    // double bond. pruneToFitValency may never cut the path back to root,
+    // so there is nothing to trim: the only honest answer is to decline
+    // rather than leave a valency-1 atom carrying a double bond.
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, "0", "C", 2); // "1", double-bonded to root
+
+    expect(retypeAtomWithPrune(graph, "1", "I")).toBe(graph);
+    expect(canRetypeAtom(graph, "1", "I")).toBe(false);
+  });
+
+  it("allows an element that exactly fits the parent bond", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, "0", "C", 2); // "1"
+
+    const retyped = retypeAtomWithPrune(graph, "1", "O"); // valency 2, parent bond 2
+
+    expect(canRetypeAtom(graph, "1", "O")).toBe(true);
+    expect(findAtomById(retyped, "1")!.element).toBe("O");
+    expect(usedValency(findAtomById(retyped, "1")!)).toBe(2);
+  });
+
+  it("still prunes substituents when only they overshoot, rather than declining", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, "0", "C", 1); // "1", target
+    graph = addAtomFromStub(graph, "1", "F", 1); // "2"
+    graph = addAtomFromStub(graph, "1", "Cl", 1); // "3"
+    graph = addAtomFromStub(graph, "1", "Br", 1); // "4"
+
+    const retyped = retypeAtomWithPrune(graph, "1", "O"); // valency 2: parent + one substituent
+
+    expect(canRetypeAtom(graph, "1", "O")).toBe(true);
+    expect(usedValency(findAtomById(retyped, "1")!)).toBe(2);
+  });
+
+  it("never declines on the root seed atom, which has no parent edge to protect", () => {
+    // Every bond the root has is a candidate, so a shrinking retype can
+    // always reach a legal state by dropping branches.
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, "0", "C", 2); // "1", double-bonded off the root
+
+    const retyped = retypeAtomWithPrune(graph, "0", "I");
+
+    expect(canRetypeAtom(graph, "0", "I")).toBe(true);
+    expect(findAtomById(retyped, "0")!.element).toBe("I");
+    expect(usedValency(findAtomById(retyped, "0")!)).toBeLessThanOrEqual(1);
+  });
+
+  it("agrees with the mutation on every element, for a target the parent edge constrains", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, "0", "C", 3); // "1", triple-bonded -- only C and N can host it
+
+    for (const element of ["C", "N", "O", "S", "F", "Cl", "Br", "I"] as const) {
+      const changed = retypeAtomWithPrune(graph, "1", element) !== graph;
+      expect(canRetypeAtom(graph, "1", element)).toBe(changed);
+    }
+  });
+});
+
+describe("canReplaceAtomWithRing", () => {
+  it("agrees with replaceAtomWithRing across hosts, aromaticity, and crowding", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, "0", "C", 2); // "1", double-bonded: room for a plain ring, not an aromatic one
+    graph = addAtomFromStub(graph, "0", "O", 1); // "2", not a carbon
+
+    for (const [atomId, aromatic] of [
+      ["1", false],
+      ["1", true],
+      ["2", false],
+      ["0", true],
+      ["missing", false],
+    ] as const) {
+      const size = aromatic ? 6 : 3;
+      const changed =
+        atomId !== "missing" && replaceAtomWithRing(graph, atomId, size, aromatic) !== graph;
+      expect(canReplaceAtomWithRing(graph, atomId, aromatic)).toBe(changed);
+    }
+  });
+
+  it("refuses once the molecule already has a ring", () => {
+    const graph = addRing(createSeedGraph(), "0", 6, false);
+
+    expect(canReplaceAtomWithRing(graph, "0", false)).toBe(false);
   });
 });

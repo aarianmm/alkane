@@ -1,5 +1,5 @@
 import type { BondOrder, Element, MoleculeGraph } from "../graph/types";
-import { canReplaceWithGroup } from "../graph/functionalGroups";
+import { isReplaceableAtom } from "./replaceableAtom";
 import { findRing, isAromaticRing, openSlotCount, ringBondKeys } from "../graph/queries";
 import { angularDistance } from "../layout/hydrogens";
 import {
@@ -86,23 +86,6 @@ const AROMATIC_CIRCLE_SCALE = 0.6;
 function centroid(points: Point[]): Point {
   const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
   return { x: sum.x / points.length, y: sum.y / points.length };
-}
-
-// A pending ring always changes something concrete when it lands (there's no
-// single "already this" element to compare against), so only a plain armed
-// element -- already equal to the atom's own -- counts as a no-op. A pending
-// group defers to canReplaceWithGroup, since not every atom is a legal host
-// for every group (e.g. a halogen can never host -COOH).
-function isReplaceableAtom(
-  graph: MoleculeGraph,
-  selection: Selection,
-  armedElement: Element,
-  atomId: string,
-  atomElement: Element,
-): boolean {
-  if (selection?.kind === "pendingRing") return true;
-  if (selection?.kind === "pendingGroup") return canReplaceWithGroup(graph, atomId, selection.groupId);
-  return atomElement !== armedElement;
 }
 
 /**

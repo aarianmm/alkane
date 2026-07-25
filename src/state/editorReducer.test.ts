@@ -422,6 +422,22 @@ describe("REPLACE_ATOM", () => {
     expect(state).toBe(before);
   });
 
+  it("declines an element the target's parent bond can't carry, leaving no undo step", () => {
+    // Iodine's valency is 1 and the target is held by a double bond, which
+    // pruning may never cut. Refusing keeps this the same all-or-nothing
+    // gesture as a pending ring or group that doesn't fit.
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SET_TOOL_BOND_ORDER", bondOrder: 2 });
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1", double-bonded
+    state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "I" });
+    const before = state;
+
+    state = editorReducer(state, { type: "REPLACE_ATOM", atomId: "1" });
+
+    expect(state).toBe(before);
+    expect(state.history.past).toBe(before.history.past);
+  });
+
   it("replaces the clicked carbon with the armed ring", () => {
     let state = createInitialState();
     state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
