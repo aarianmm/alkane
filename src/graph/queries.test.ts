@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createSeedGraph } from "./types";
-import { addAtomFromStub, addRing, closeRingBond, setBondOrder } from "./mutations";
+import { addAtomFromStub, addRing, closeRingBond, setAtomElement, setBondOrder } from "./mutations";
 import {
   bondOrderBetween,
   canInsertRing,
@@ -8,6 +8,7 @@ import {
   findRing,
   hasRing,
   isAromaticRing,
+  isMethane,
   isRingClosureLegal,
   openSlotCount,
   pathBetween,
@@ -64,6 +65,25 @@ describe("hasRing", () => {
     graph = addAtomFromStub(graph, "1", "C", 1);
     graph = closeRingBond(graph, "2", graph.rootId, 1);
     expect(hasRing(graph)).toBe(true);
+  });
+});
+
+describe("isMethane", () => {
+  it("is true for the bare seed carbon", () => {
+    const graph = createSeedGraph();
+    expect(isMethane(graph)).toBe(true);
+  });
+
+  it("is false once a second atom is grown", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1);
+    expect(isMethane(graph)).toBe(false);
+  });
+
+  it("is false once the seed carbon is swapped for a heteroatom", () => {
+    let graph = createSeedGraph();
+    graph = setAtomElement(graph, graph.rootId, "O");
+    expect(isMethane(graph)).toBe(false);
   });
 });
 

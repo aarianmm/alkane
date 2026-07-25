@@ -167,6 +167,11 @@ export function hasCarbon(graph: MoleculeGraph): boolean {
   return graph.atoms.some((a) => a.element === "C");
 }
 
+/** Whether the graph is just the bare seed carbon -- methane, with no other style to fall back to since skeletal draws it as nothing at all (no label, no bonds). */
+export function isMethane(graph: MoleculeGraph): boolean {
+  return graph.atoms.length === 1 && graph.atoms[0].element === "C";
+}
+
 /** The ring's bonds as the same sorted `a-b` keys `collectBonds` renders with — which bonds get the aromatic circle's effective-single-order treatment. */
 export function ringBondKeys(ring: string[]): Set<string> {
   const keys = new Set<string>();
