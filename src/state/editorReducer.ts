@@ -146,7 +146,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         // Already the armed element and already valid -- true no-op.
         return state;
       }
-      return withMutation(state, retypeAtomWithPrune(state.graph, action.atomId, element));
+      const retyped = retypeAtomWithPrune(state.graph, action.atomId, element);
+      if (retyped === state.graph) return state; // parent edge alone outweighs the new element
+      return withMutation(state, retyped);
     }
 
     case "SELECT_RING":
