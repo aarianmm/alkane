@@ -1,5 +1,5 @@
-import { PERIODIC_TABLE, type Atom, type BondOrder, type Element, type MoleculeGraph } from "./types";
-import { addAtomFromStub } from "./mutations";
+import { PERIODIC_TABLE, type BondOrder, type Element, type MoleculeGraph } from "./types";
+import { addAtomFromStub, pruneToFitValency, setAtomElement } from "./mutations";
 import { bondOrderBetween, findAtomById, openSlotCount } from "./queries";
 
 /**
@@ -144,32 +144,31 @@ function attachmentInternalUsedValency(spec: FunctionalGroupSpec): number {
 }
 
 /**
- * Whether the group's attachment atom has room to carry a parent bond of
- * `order` on top of its own fixed internal structure, without the atom
- * ending up hypervalent -- with one deliberate carve-out. Nitro's nitrogen
- * already spends 4 of its "budget" on the two N=O bonds before any parent
- * bond is even considered, which is 1 over nitrogen's nominal valency (3):
- * a plain `internalUsed + order <= valency` check would reject *every*
- * placement of nitro, including the only one the engine actually accepts
- * (a single R-N bond, for a legal total of 5). So nitro is special-cased to
- * accept exactly that one legal order instead of being run through the
- * generic arithmetic at all.
+ * The attachment atom's total legal used valency -- parent bond, group-
+ * internal bonds, and any retained outside branches all counted together.
+ * Ordinarily just the attachment element's nominal valency, with one
+ * deliberate carve-out: nitro's nitrogen is the engine's one legal
+ * hypervalent form, R-N(=O)(=O), which already runs to 5 (1 to R + 2 + 2)
+ * rather than nitrogen's nominal 3. Budgeting it at 5 up front -- instead of
+ * special-casing every caller that would otherwise reject it -- means the
+ * ordinary arithmetic in `canAttachmentCarryOrder` and
+ * `replaceAtomWithFunctionalGroup` just works for nitro too, with no
+ * separate branch.
  */
-function canAttachmentCarryOrder(spec: FunctionalGroupSpec, order: BondOrder): boolean {
-  if (spec.id === "nitro") return order === 1;
-  const attachmentElement = spec.atoms[0].element;
-  const internalUsed = attachmentInternalUsedValency(spec);
-  return internalUsed + order <= PERIODIC_TABLE[attachmentElement].valency;
+function attachmentTotalBudget(spec: FunctionalGroupSpec): number {
+  if (spec.id === "nitro") return 5;
+  return PERIODIC_TABLE[spec.atoms[0].element].valency;
 }
 
-/** The lowest slot ordinal not already occupied by one of parentId's children -- mirrors mutations.ts's private helper of the same name; small enough to duplicate rather than export just for this. */
-function nextFreeSlot(graph: MoleculeGraph, parentId: string): number {
-  const used = new Set(
-    graph.atoms.filter((a) => a.parentId === parentId).map((a) => a.slotFromParent!),
-  );
-  let slot = 1;
-  while (used.has(slot)) slot++;
-  return slot;
+/**
+ * Whether the group's attachment atom has room to carry a parent bond of
+ * `order` on top of its own fixed internal structure, without the atom
+ * ending up hypervalent (see `attachmentTotalBudget` for how nitro's one
+ * legal hypervalent form is folded into this same check rather than
+ * special-cased here).
+ */
+function canAttachmentCarryOrder(spec: FunctionalGroupSpec, order: BondOrder): boolean {
+  return attachmentInternalUsedValency(spec) + order <= attachmentTotalBudget(spec);
 }
 
 /** Grows a group's non-attachment atoms (spec index 1+) off an attachment atom that already exists in `graph` at `attachmentId`. Composes `addAtomFromStub` per fragment atom, so ids/slots/nextId all come out consistent for free. */
@@ -223,8 +222,8 @@ export function addFunctionalGroupFromStub(
  * group's attachment atom must be able to carry the target's existing
  * parent bond at its current order -- the one part of the target's role
  * that's never negotiable, since bond-preservation (see
- * `replaceAtomWithFunctionalGroup`) is free to drop or re-home every other
- * bond but must always keep the path back to the root.
+ * `replaceAtomWithFunctionalGroup`) is free to drop every other bond but must
+ * always keep the path back to the root.
  */
 export function canReplaceWithGroup(
   graph: MoleculeGraph,
@@ -239,129 +238,31 @@ export function canReplaceWithGroup(
   return canAttachmentCarryOrder(FUNCTIONAL_GROUPS[groupId], parentOrder);
 }
 
-/** A displaced neighbor (real bond, not implicit H) that must be either re-homed onto the finished group or dropped along with everything under it. */
-interface DisplacedBranch {
-  to: string;
-  order: BondOrder;
-  subtreeIds: Set<string>;
-}
-
-/** Every atom reachable from `startId` without stepping through `excludeId` -- a whole branch's worth of atoms, used both to cost a branch (for the drop/keep tie-break) and to carry it wholesale when it's re-homed. */
-function subtreeExcluding(graph: MoleculeGraph, startId: string, excludeId: string): Set<string> {
-  const byId = new Map(graph.atoms.map((a) => [a.id, a]));
-  const seen = new Set<string>();
-  const stack = [startId];
-  while (stack.length > 0) {
-    const id = stack.pop()!;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    for (const bond of byId.get(id)?.bonds ?? []) {
-      if (bond.to !== excludeId && !seen.has(bond.to)) stack.push(bond.to);
-    }
-  }
-  return seen;
-}
-
-/** Every size-`k` subset of `{0, ..., n-1}`, as index arrays. `n` is always small here (bounded by an atom's own valency, at most 4), so a plain recursive enumeration is fine. */
-function combinations(n: number, k: number): number[][] {
-  const result: number[][] = [];
-  function build(start: number, chosen: number[]) {
-    if (chosen.length === k) {
-      result.push([...chosen]);
-      return;
-    }
-    for (let i = start; i < n; i++) {
-      chosen.push(i);
-      build(i + 1, chosen);
-      chosen.pop();
-    }
-  }
-  build(0, []);
-  return result;
-}
-
 /**
- * Whether every item in `items` can be assigned to some host with enough
- * spare valency left for its bond order -- a multi-bin packing feasibility
- * check, small enough (a handful of items and hosts, each capacity <= 3) for
- * plain backtracking. Returns the assignment itself (item id -> host id) so
- * the caller doesn't have to re-derive it.
- */
-function packAssignment(
-  items: { to: string; order: BondOrder }[],
-  hostIds: string[],
-  hostSpares: number[],
-): Map<string, string> | null {
-  const spares = [...hostSpares];
-  const assignment = new Map<string, string>();
-
-  function backtrack(index: number): boolean {
-    if (index === items.length) return true;
-    const item = items[index];
-    for (let h = 0; h < hostIds.length; h++) {
-      if (spares[h] >= item.order) {
-        spares[h] -= item.order;
-        assignment.set(item.to, hostIds[h]);
-        if (backtrack(index + 1)) return true;
-        spares[h] += item.order;
-        assignment.delete(item.to);
-      }
-    }
-    return false;
-  }
-
-  return backtrack(0) ? assignment : null;
-}
-
-/**
- * Decides which displaced branches survive a replacement, and where each
- * lands. The only objective is maximizing how many branches survive (not
- * how many atoms, and not any notion of which bond "matters" more) --
- * dropping is otherwise unranked, so ties are broken by dropping whichever
- * combination of branches is cheapest (fewest total atoms), mirroring
- * `pruneToFitValency`'s own tie-break. Checked from "drop nothing" upward
- * so the first feasible combination found is a maximum: this can't reuse
- * `pruneToFitValency` itself, since that helper only ever drops a branch
- * outright and has no notion of re-homing one onto a *different* atom.
- */
-function chooseSurvivors(
-  branches: DisplacedBranch[],
-  hostIds: string[],
-  hostSpares: number[],
-): Map<string, string> {
-  const items = branches.map((b) => ({ to: b.to, order: b.order, cost: b.subtreeIds.size }));
-  const totalCost = (indices: number[]) => indices.reduce((sum, i) => sum + items[i].cost, 0);
-
-  for (let numDropped = 0; numDropped <= items.length; numDropped++) {
-    const dropCombos = combinations(items.length, numDropped).sort(
-      (a, b) => totalCost(a) - totalCost(b),
-    );
-    for (const dropIdx of dropCombos) {
-      const dropSet = new Set(dropIdx);
-      const kept = items.filter((_, i) => !dropSet.has(i));
-      const assignment = packAssignment(kept, hostIds, hostSpares);
-      if (assignment) return assignment;
-    }
-  }
-  return new Map();
-}
-
-/**
- * Replaces the carbon at `atomId` in place with `groupId`, preserving as
- * many of its existing real bonds as the finished group has room for.
- * All-or-nothing and never partially applied: returns `graph` unchanged
- * through `canReplaceWithGroup`'s gate (wrong element, or the attachment
- * atom genuinely can't carry the parent bond's order).
+ * Replaces the carbon at `atomId` in place with `groupId`. All-or-nothing
+ * and never partially applied: returns `graph` unchanged through
+ * `canReplaceWithGroup`'s gate (wrong element, or the attachment atom
+ * genuinely can't carry the parent bond's order).
  *
- * The approach: strip every one of the target's non-parent branches out of
- * the graph entirely (each carries its own whole subtree with it), retype
- * the target to the group's attachment element, then grow the rest of the
- * group's atoms off it from that clean slate -- this is what gives the new
- * fragment atoms correct, lowest-first slot numbers, unconfused by the
- * removed branches' old ones. Every atom in the finished fragment (the
- * target included -- e.g. an aldehyde's own carbon still has a free slot)
- * is then a candidate host for re-homing a branch back on, per
- * `chooseSurvivors`; whatever doesn't fit anywhere just stays stripped.
+ * Every one of the target's other existing bonds (i.e. not the parent edge)
+ * is either kept exactly where it already sits or dropped along with its
+ * whole subtree -- a bond is never moved onto a different atom of the
+ * inserted fragment. What survives is whatever fits: the group's own
+ * internal bonds are fixed by the vocabulary and always claim their share of
+ * the attachment atom's valency first, so `pruneToFitValency` (protecting
+ * the parent edge, and preferring to drop the cheapest branches first, same
+ * as it does for a plain element retype) trims the target's other bonds down
+ * to whatever's left over. Carboxylic acid's attachment carbon, for
+ * instance, already spends 3 of its 4 slots on the group's own `=O` and
+ * `-OH`, leaving room for only the parent edge -- so replacing a carbon that
+ * also carried other substituents with carboxylic acid drops every one of
+ * them.
+ *
+ * The prune runs before the target atom is retyped (its element doesn't
+ * affect the arithmetic -- `pruneToFitValency` is only ever told the target
+ * valency to prune down to) and before the rest of the group's atoms are
+ * grown off it, so those fragment atoms land on whatever slots the surviving
+ * branches left open.
  */
 export function replaceAtomWithFunctionalGroup(
   graph: MoleculeGraph,
@@ -373,61 +274,10 @@ export function replaceAtomWithFunctionalGroup(
   const spec = FUNCTIONAL_GROUPS[groupId];
   const target = findAtomById(graph, atomId)!;
   const parentId = target.parentId;
-  const parentOrder = parentId ? bondOrderBetween(graph, atomId, parentId) : undefined;
 
-  const branches: DisplacedBranch[] = target.bonds
-    .filter((b) => b.to !== parentId)
-    .map((b) => ({ to: b.to, order: b.order, subtreeIds: subtreeExcluding(graph, b.to, atomId) }));
-  const allBranchIds = new Set(branches.flatMap((b) => [...b.subtreeIds]));
+  const spareForOtherBonds = attachmentTotalBudget(spec) - attachmentInternalUsedValency(spec);
+  const pruned = pruneToFitValency(graph, atomId, spareForOtherBonds, parentId);
 
-  const stripped: MoleculeGraph = {
-    ...graph,
-    atoms: graph.atoms
-      .filter((a) => !allBranchIds.has(a.id))
-      .map((a) =>
-        a.id === atomId
-          ? {
-              ...a,
-              element: spec.atoms[0].element,
-              bonds: parentId ? [{ to: parentId, order: parentOrder! }] : [],
-            }
-          : a,
-      ),
-  };
-
-  const { graph: withFragment, fragmentIds } = growFragmentAtoms(stripped, atomId, spec);
-
-  const hostSpares = fragmentIds.map((id) => openSlotCount(findAtomById(withFragment, id)!));
-  const survivors = chooseSurvivors(branches, fragmentIds, hostSpares);
-
-  let finalGraph = withFragment;
-  for (const branch of branches) {
-    const hostId = survivors.get(branch.to);
-    if (!hostId) continue; // no spare room anywhere in the finished group -- dropped, subtree and all
-
-    const slot = nextFreeSlot(finalGraph, hostId);
-    const subtreeAtoms = graph.atoms.filter((a) => branch.subtreeIds.has(a.id));
-    const rehomedAtoms: Atom[] = subtreeAtoms.map((a) =>
-      a.id === branch.to
-        ? {
-            ...a,
-            parentId: hostId,
-            slotFromParent: slot,
-            bonds: a.bonds.map((b) => (b.to === atomId ? { to: hostId, order: branch.order } : b)),
-          }
-        : a,
-    );
-
-    finalGraph = {
-      ...finalGraph,
-      atoms: [
-        ...finalGraph.atoms.map((a) =>
-          a.id === hostId ? { ...a, bonds: [...a.bonds, { to: branch.to, order: branch.order }] } : a,
-        ),
-        ...rehomedAtoms,
-      ],
-    };
-  }
-
-  return finalGraph;
+  const retyped = setAtomElement(pruned, atomId, spec.atoms[0].element);
+  return growFragmentAtoms(retyped, atomId, spec).graph;
 }

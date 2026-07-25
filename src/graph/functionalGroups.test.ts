@@ -259,25 +259,47 @@ describe("replaceAtomWithFunctionalGroup", () => {
     expect(findAtomById(replaced, "4")).toBeUndefined();
   });
 
-  it("re-homes a displaced substituent onto a non-attachment atom of the new group that has spare valency", () => {
+  it("never relocates a displaced substituent onto a non-attachment atom of the new group -- it's retained on the attachment atom if it fits, otherwise dropped entirely", () => {
     let graph = createSeedGraph();
     graph = addAtomFromStub(graph, "0", "C", 1); // "1", target
-    graph = addAtomFromStub(graph, "1", "F", 1); // "2" -- "1" has parent(1) + F(1) = 2 used, 2 open
+    graph = addAtomFromStub(graph, "1", "F", 1); // "2"
+    graph = addAtomFromStub(graph, "1", "Cl", 1); // "3" -- "1" has parent(1) + F(1) + Cl(1) = 3 used, 1 open
 
-    // Methoxy's own O-attachment is fully saturated (O-R + O-CH3), but its
-    // methyl carbon has 3 spare slots -- the fluorine should land there.
+    // Methoxy's own O-attachment already spends its only other slot on the
+    // group's own -CH3, leaving no room for either halogen -- both are
+    // dropped, and in particular neither ends up bonded to the methyl carbon.
     graph = replaceAtomWithFunctionalGroup(graph, "1", "methoxy");
 
     const oxygen = findAtomById(graph, "1")!;
     expect(oxygen.element).toBe("O");
     expect(oxygen.bonds).toHaveLength(2); // parent + the methyl carbon, nothing else fits
 
-    const fluorine = findAtomById(graph, "2")!;
     const methylId = oxygen.bonds.find((b) => b.to !== "0")!.to;
-    expect(fluorine.parentId).toBe(methylId);
-    expect(fluorine.bonds).toEqual([{ to: methylId, order: 1 }]);
     const methyl = findAtomById(graph, methylId)!;
-    expect(methyl.bonds.some((b) => b.to === "2")).toBe(true);
+    expect(methyl.bonds).toHaveLength(1); // only its bond back to the oxygen -- no halogen landed here
+    expect(findAtomById(graph, "2")).toBeUndefined();
+    expect(findAtomById(graph, "3")).toBeUndefined();
+  });
+
+  it("drops every other substituent when the group's own internal bonds leave room for only the parent edge (carboxylic acid)", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, "0", "C", 1); // "1", target carbon
+    graph = addAtomFromStub(graph, "1", "F", 1); // "2"
+    graph = addAtomFromStub(graph, "1", "Cl", 1); // "3"
+    graph = addAtomFromStub(graph, "1", "Br", 1); // "4" -- "1" now fully saturated (4 used)
+
+    // Carboxylic acid's carbon already spends 3 of its 4 slots on the
+    // group's own =O and -OH, leaving room for only the parent edge.
+    const replaced = replaceAtomWithFunctionalGroup(graph, "1", "carboxylicAcid");
+
+    const carbon = findAtomById(replaced, "1")!;
+    expect(carbon.element).toBe("C");
+    expect(carbon.bonds.map((b) => b.order).sort()).toEqual([1, 1, 2]);
+    expect(usedValency(carbon)).toBe(4);
+    expect(carbon.bonds.some((b) => b.to === "0")).toBe(true); // parent edge kept
+    expect(findAtomById(replaced, "2")).toBeUndefined();
+    expect(findAtomById(replaced, "3")).toBeUndefined();
+    expect(findAtomById(replaced, "4")).toBeUndefined();
   });
 
   it("drops the cheapest branches first when only one substituent can survive", () => {
@@ -322,5 +344,29 @@ describe("replaceAtomWithFunctionalGroup", () => {
 
     expect(after).toBe(before);
     expect(after.atoms).toHaveLength(2);
+  });
+
+  it("leaves every bond symmetric and every atom's valency legal (nitro's nitrogen excepted), across every group in the vocabulary", () => {
+    for (const groupId of FUNCTIONAL_GROUP_IDS) {
+      let graph = createSeedGraph();
+      graph = addAtomFromStub(graph, "0", "C", 1); // "1", target carbon
+      graph = addAtomFromStub(graph, "1", "F", 1); // "2"
+      graph = addAtomFromStub(graph, "1", "Cl", 1); // "3"
+      graph = addAtomFromStub(graph, "1", "Br", 1); // "4" -- "1" fully saturated
+
+      const replaced = replaceAtomWithFunctionalGroup(graph, "1", groupId);
+
+      for (const atom of replaced.atoms) {
+        for (const bond of atom.bonds) {
+          const neighbor = findAtomById(replaced, bond.to)!;
+          expect(neighbor.bonds.some((b) => b.to === atom.id && b.order === bond.order)).toBe(true);
+        }
+        if (groupId === "nitro" && atom.element === "N" && atom.id !== "0") {
+          expect(usedValency(atom)).toBe(5); // the one legal hypervalent case
+          continue;
+        }
+        expect(usedValency(atom)).toBeLessThanOrEqual(PERIODIC_TABLE[atom.element].valency);
+      }
+    }
   });
 });
