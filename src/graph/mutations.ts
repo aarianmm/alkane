@@ -1,5 +1,13 @@
 import { PERIODIC_TABLE, type Atom, type BondOrder, type Element, type MoleculeGraph } from "./types";
-import { findRing, hasRing, openSlotCount, usedValency } from "./queries";
+import {
+  bondOrderBetween,
+  findRing,
+  hasCarbon,
+  hasRing,
+  openSlotCount,
+  ringNeighborIds,
+  usedValency,
+} from "./queries";
 
 function getAtom(graph: MoleculeGraph, id: string): Atom {
   const atom = graph.atoms.find((a) => a.id === id);
@@ -286,23 +294,25 @@ function removeBondsAndPrune(graph: MoleculeGraph, atomId: string, toIds: string
  *
  * A no-op (valency already fits) returns `graph` itself unchanged.
  *
- * `protectedNeighborId`, when given, is excluded from the candidates exactly
- * like the parent edge — for `setBondOrderWithPrune`, which needs to free
- * room on an endpoint without any risk of the very bond it's raising being
- * the one that gets cut.
+ * `protectedNeighborIds`, when given, are excluded from the candidates
+ * exactly like the parent edge — used by `setBondOrderWithPrune` (which
+ * needs to free room on an endpoint without any risk of the very bond it's
+ * raising being the one that gets cut) and by the ring-preserving replace
+ * path (which must never let a substituent-prune sacrifice a ring bond).
  */
 export function pruneToFitValency(
   graph: MoleculeGraph,
   atomId: string,
   targetValency: number,
-  protectedNeighborId?: string,
+  protectedNeighborIds: readonly string[] = [],
 ): MoleculeGraph {
   const atom = getAtom(graph, atomId);
   const deficit = usedValency(atom) - targetValency;
   if (deficit <= 0) return graph;
 
+  const protectedSet = new Set(protectedNeighborIds);
   const candidates = atom.bonds.filter(
-    (bond) => bond.to !== atom.parentId && bond.to !== protectedNeighborId,
+    (bond) => bond.to !== atom.parentId && !protectedSet.has(bond.to),
   );
   if (candidates.length === 0) return graph;
 
@@ -391,9 +401,10 @@ export function pruneForOccupant(
   graph: MoleculeGraph,
   atomId: string,
   footprint: OccupantFootprint,
+  protectedNeighborIds: readonly string[] = [],
 ): MoleculeGraph | null {
   const spare = spareForExistingBonds(footprint);
-  const pruned = pruneToFitValency(graph, atomId, spare);
+  const pruned = pruneToFitValency(graph, atomId, spare, protectedNeighborIds);
   return usedValency(getAtom(pruned, atomId)) <= spare ? pruned : null;
 }
 
@@ -408,8 +419,43 @@ export function canHostOccupant(
   graph: MoleculeGraph,
   atomId: string,
   footprint: OccupantFootprint,
+  protectedNeighborIds: readonly string[] = [],
 ): boolean {
-  return pruneForOccupant(graph, atomId, footprint) !== null;
+  return pruneForOccupant(graph, atomId, footprint, protectedNeighborIds) !== null;
+}
+
+/**
+ * Rule A, the ring-preservation gate every replace-in-place must pass before
+ * the usual footprint arithmetic even runs. An atom off the molecule's ring
+ * has nothing to protect. An atom *on* the ring may only be replaced by an
+ * occupant that keeps the position carbon-attached (so the two ring bonds
+ * still land on a valid ring atom) and leaves it enough spare valency for
+ * both of them -- `ringBondSum`, the sum of the bond orders to its two ring
+ * neighbours (2 for an ordinary saturated ring carbon; 3 for an aromatic
+ * one's stored single+double Kekule pair, which is why nothing in the
+ * vocabulary can replace a benzene carbon). When it's allowed, the two ring
+ * neighbours must stay protected through the prune that follows -- otherwise
+ * `pruneToFitValency` could "save" atoms by cutting a ring bond instead of a
+ * substituent, since a ring bond costs 0 atoms to sever (the ring just
+ * reopens) while a substituent costs at least 1.
+ */
+export function ringReplaceProtection(
+  graph: MoleculeGraph,
+  atomId: string,
+  attachmentElement: Element,
+  footprint: OccupantFootprint,
+): { allowed: false } | { allowed: true; protectedNeighborIds: string[] } {
+  const neighbors = ringNeighborIds(graph, atomId);
+  if (neighbors.length === 0) return { allowed: true, protectedNeighborIds: [] };
+
+  const ringBondSum = neighbors.reduce(
+    (sum, id) => sum + (bondOrderBetween(graph, atomId, id) ?? 0),
+    0,
+  );
+  if (attachmentElement !== "C" || spareForExistingBonds(footprint) < ringBondSum) {
+    return { allowed: false };
+  }
+  return { allowed: true, protectedNeighborIds: neighbors };
 }
 
 /**
@@ -418,25 +464,34 @@ export function canHostOccupant(
  * that still fit are left untouched. This is the click-to-replace counterpart
  * to `setAtomElement`, which deliberately skips pruning.
  *
- * A no-op (returns `graph` unchanged) when the atom's parent edge alone
- * outweighs the new element -- e.g. a double-bonded carbon retyped to a
- * halogen. Pruning can't cut a parent edge, so there is nothing to trim and
- * the only honest answer is to decline; the same all-or-nothing rule rings
- * and functional groups have always followed.
+ * A no-op (returns `graph` unchanged) when: the atom's parent edge alone
+ * outweighs the new element (e.g. a double-bonded carbon retyped to a
+ * halogen -- pruning can't cut a parent edge, so there is nothing to trim);
+ * the atom sits on the molecule's ring and the new element can't keep both
+ * ring bonds (Rule A, see `ringReplaceProtection`); or the resulting graph
+ * would have no carbon left in it at all (Rule B, e.g. methane's lone carbon
+ * retyped to oxygen). Same all-or-nothing rule rings and functional groups
+ * have always followed.
  */
-export function retypeAtomWithPrune(
-  graph: MoleculeGraph,
-  atomId: string,
-  element: Element,
-): MoleculeGraph {
-  const pruned = pruneForOccupant(graph, atomId, elementFootprint(element));
-  if (!pruned) return graph;
-  return setAtomElement(pruned, atomId, element);
+function attemptRetype(graph: MoleculeGraph, atomId: string, element: Element): MoleculeGraph | null {
+  const footprint = elementFootprint(element);
+  const protection = ringReplaceProtection(graph, atomId, element, footprint);
+  if (!protection.allowed) return null;
+
+  const pruned = pruneForOccupant(graph, atomId, footprint, protection.protectedNeighborIds);
+  if (!pruned) return null;
+
+  const retyped = setAtomElement(pruned, atomId, element);
+  return hasCarbon(retyped) ? retyped : null;
+}
+
+export function retypeAtomWithPrune(graph: MoleculeGraph, atomId: string, element: Element): MoleculeGraph {
+  return attemptRetype(graph, atomId, element) ?? graph;
 }
 
 /** Whether retyping `atomId` to `element` would succeed -- see `retypeAtomWithPrune` for when it wouldn't. */
 export function canRetypeAtom(graph: MoleculeGraph, atomId: string, element: Element): boolean {
-  return canHostOccupant(graph, atomId, elementFootprint(element));
+  return attemptRetype(graph, atomId, element) !== null;
 }
 
 /**
@@ -522,7 +577,7 @@ export function setBondOrderWithPrune(
     [atomIdB, atomIdA],
   ] as const) {
     const valency = PERIODIC_TABLE[getAtom(pruned, selfId).element].valency;
-    pruned = pruneToFitValency(pruned, selfId, valency - order + oldOrder, otherId);
+    pruned = pruneToFitValency(pruned, selfId, valency - order + oldOrder, [otherId]);
   }
 
   const otherSumA = usedValency(getAtom(pruned, atomIdA)) - oldOrder;

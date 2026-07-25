@@ -22,6 +22,7 @@ import {
 import {
   bondOrderBetween,
   findAtomById,
+  hasCarbon,
   hasRing,
   isAromaticRing,
   openSlotCount,
@@ -688,9 +689,12 @@ describe("retypeAtomWithPrune -- the parent edge gate", () => {
 
   it("never declines on the root seed atom, which has no parent edge to protect", () => {
     // Every bond the root has is a candidate, so a shrinking retype can
-    // always reach a legal state by dropping branches.
+    // always reach a legal state by dropping branches. A second carbon is
+    // kept around so the result still has a carbon in it (Rule B) -- the
+    // cheaper double-bonded "1" is what gets pruned instead.
     let graph = createSeedGraph();
     graph = addAtomFromStub(graph, "0", "C", 2); // "1", double-bonded off the root
+    graph = addAtomFromStub(graph, "0", "C", 1); // "2"
 
     const retyped = retypeAtomWithPrune(graph, "0", "I");
 
@@ -734,5 +738,32 @@ describe("canReplaceAtomWithRing", () => {
     const graph = addRing(createSeedGraph(), "0", 6, false);
 
     expect(canReplaceAtomWithRing(graph, "0", false)).toBe(false);
+  });
+});
+
+describe("retypeAtomWithPrune -- Rule A (ring preservation) and Rule B (stays organic)", () => {
+  it("declines retyping a ring carbon to a non-carbon element", () => {
+    const graph = addRing(createSeedGraph(), "0", 6, false);
+
+    expect(canRetypeAtom(graph, "1", "O")).toBe(false);
+    expect(retypeAtomWithPrune(graph, "1", "O")).toBe(graph);
+  });
+
+  it("declines retyping methane's lone carbon, which would leave the molecule with no carbon at all", () => {
+    const graph = createSeedGraph(); // just "0", a lone carbon
+
+    expect(canRetypeAtom(graph, "0", "O")).toBe(false);
+    expect(retypeAtomWithPrune(graph, "0", "O")).toBe(graph);
+  });
+
+  it("allows retyping one carbon of a two-carbon molecule, since the other carbon survives", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, "0", "C", 1); // "1"
+
+    const retyped = retypeAtomWithPrune(graph, "1", "O");
+
+    expect(canRetypeAtom(graph, "1", "O")).toBe(true);
+    expect(findAtomById(retyped, "1")!.element).toBe("O");
+    expect(hasCarbon(retyped)).toBe(true);
   });
 });
