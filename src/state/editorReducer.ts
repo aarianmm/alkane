@@ -9,6 +9,11 @@ import {
   setBondOrderWithPrune,
 } from "../graph/mutations";
 import {
+  addFunctionalGroupFromStub,
+  replaceAtomWithFunctionalGroup,
+  type FunctionalGroupId,
+} from "../graph/functionalGroups";
+import {
   bondOrderBetween,
   canInsertRing,
   clampStubBondOrder,
@@ -21,6 +26,8 @@ import { DEFAULT_STYLE, type StyleId } from "../styles";
 export type Selection =
   /** A ring size (and aromaticity) armed from the toolbar, waiting for the next stub click to say where it grows. There's no other kind of selection -- an atom or bond is never "selected", only ever pressed, which applies the armed tool directly. */
   | { kind: "pendingRing"; size: number; aromatic: boolean }
+  /** A functional group armed from the toolbar, waiting for the next stub/atom click the same way a pending ring does. */
+  | { kind: "pendingGroup"; groupId: FunctionalGroupId }
   | null;
 
 interface History {
@@ -64,6 +71,7 @@ export type EditorAction =
   | { type: "GROW_ATOM"; atomId: string }
   | { type: "REPLACE_ATOM"; atomId: string }
   | { type: "SELECT_RING"; size: number; aromatic: boolean }
+  | { type: "SELECT_GROUP"; groupId: FunctionalGroupId }
   | { type: "SET_STYLE"; style: StyleId }
   | { type: "SET_TOOL_ELEMENT"; element: Element }
   | { type: "SET_TOOL_BOND_ORDER"; bondOrder: BondOrder }
@@ -113,6 +121,15 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         if (!canInsertRing(withAnchor, anchorId, aromatic)) return state; // e.g. a ring already exists; stays armed
         return withMutation(state, addRing(withAnchor, anchorId, size, aromatic), { selection: null });
       }
+      // A pending group grows directly off the clicked stub (its attachment
+      // atom takes the open slot itself, unlike a ring's fresh-anchor
+      // indirection) -- see addFunctionalGroupFromStub. It always links with
+      // a single bond, so the clamp below doesn't apply to it.
+      if (state.selection?.kind === "pendingGroup") {
+        const next = addFunctionalGroupFromStub(state.graph, action.atomId, state.selection.groupId);
+        if (next === state.graph) return state; // no open slot left on the stub's parent; stays armed
+        return withMutation(state, next, { selection: null });
+      }
 
       // Clamp so the armed order can never make either end of the new bond
       // hypervalent -- growing with a triple bond armed against an atom with
@@ -139,6 +156,12 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         return withMutation(state, next, { selection: null });
       }
 
+      if (state.selection?.kind === "pendingGroup") {
+        const next = replaceAtomWithFunctionalGroup(state.graph, action.atomId, state.selection.groupId);
+        if (next === state.graph) return state; // not a valid target for this group -- stays armed
+        return withMutation(state, next, { selection: null });
+      }
+
       const atom = findAtomById(state.graph, action.atomId);
       if (!atom) return state;
       const { element } = state.tool;
@@ -146,18 +169,26 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         // Already the armed element and already valid -- true no-op.
         return state;
       }
-      return withMutation(state, retypeAtomWithPrune(state.graph, action.atomId, element));
+      const retyped = retypeAtomWithPrune(state.graph, action.atomId, element);
+      if (retyped === state.graph) return state; // parent edge alone outweighs the new element
+      return withMutation(state, retyped);
     }
 
     case "SELECT_RING":
       return { ...state, selection: { kind: "pendingRing", size: action.size, aromatic: action.aromatic } };
 
+    // Arming a group is mutually exclusive with a pending ring or a held
+    // element, the same as SELECT_RING -- replacing `selection` wholesale
+    // clears whichever of those was previously armed for free.
+    case "SELECT_GROUP":
+      return { ...state, selection: { kind: "pendingGroup", groupId: action.groupId } };
+
     case "SET_STYLE":
       return { ...state, style: action.style };
 
-    // Arming an element un-arms any pending ring -- an atom and a ring are
-    // both things the user "holds" for the next stub/atom click, and only
-    // one can be held at a time.
+    // Arming an element un-arms any pending ring or group -- an atom, a
+    // ring, and a group are all things the user "holds" for the next
+    // stub/atom click, and only one can be held at a time.
     case "SET_TOOL_ELEMENT":
       return { ...state, tool: { ...state.tool, element: action.element }, selection: null };
 

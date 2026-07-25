@@ -1,5 +1,5 @@
 import { PERIODIC_TABLE, type Atom, type BondOrder, type Element, type MoleculeGraph } from "./types";
-import { canInsertRing, findRing, hasRing, openSlotCount, usedValency } from "./queries";
+import { findRing, hasRing, openSlotCount, usedValency } from "./queries";
 
 function getAtom(graph: MoleculeGraph, id: string): Atom {
   const atom = graph.atoms.find((a) => a.id === id);
@@ -336,18 +336,107 @@ export function pruneToFitValency(
 }
 
 /**
+ * What a replacement occupant costs the atom it lands on. Every "replace this
+ * atom with X" gesture — a different element, a ring, a functional group — is
+ * the same arithmetic, and this is the only thing that varies between them:
+ *
+ *   - `budget` is the total used valency the atom is allowed once X is in
+ *     place. Ordinarily the new occupant element's nominal valency; the one
+ *     exception is nitro, whose nitrogen is the engine's single legal
+ *     hypervalent form (see functionalGroups.ts).
+ *   - `internalUsed` is how much of that budget X spends on bonds it brings
+ *     with it, before any of the target's existing bonds are counted. A ring
+ *     spends 2 (or 3, aromatic); carboxylic acid spends 3 on its own =O and
+ *     -OH. A plain element spends nothing, which is why retyping an atom
+ *     looked like a different operation for so long when it never was.
+ *
+ * Whatever's left over -- `spareForExistingBonds` -- is all the room the
+ * target's current bonds get to share, and that single number drives both the
+ * "may I?" predicate and the prune.
+ */
+export interface OccupantFootprint {
+  budget: number;
+  internalUsed: number;
+}
+
+/** A plain element: it brings no bonds of its own, so the whole budget is up for grabs. */
+export function elementFootprint(element: Element): OccupantFootprint {
+  return { budget: PERIODIC_TABLE[element].valency, internalUsed: 0 };
+}
+
+/** A ring anchored through the atom: two ring bonds, or three for the Kekule alternation an aromatic ring needs. */
+export function ringFootprint(aromatic: boolean): OccupantFootprint {
+  return { budget: PERIODIC_TABLE.C.valency, internalUsed: aromatic ? 3 : 2 };
+}
+
+/** Room left for the bonds the target atom already has -- its parent edge plus any substituents. */
+export function spareForExistingBonds(footprint: OccupantFootprint): number {
+  return footprint.budget - footprint.internalUsed;
+}
+
+/**
+ * Trims `atomId`'s substituents down to the room `footprint` leaves them, and
+ * reports whether the result actually fits. Returns `null` when it doesn't --
+ * meaning the parent edge alone already overshoots, and since
+ * `pruneToFitValency` may never cut the path back to root, no amount of
+ * pruning can rescue it.
+ *
+ * That `null` is what makes every replacement all-or-nothing: the caller
+ * returns the original graph and nothing is left partially pruned. It is also
+ * the check the element-retype path used to be missing, which let a
+ * double-bonded carbon become a valency-1 halogen still carrying that double
+ * bond.
+ */
+export function pruneForOccupant(
+  graph: MoleculeGraph,
+  atomId: string,
+  footprint: OccupantFootprint,
+): MoleculeGraph | null {
+  const spare = spareForExistingBonds(footprint);
+  const pruned = pruneToFitValency(graph, atomId, spare);
+  return usedValency(getAtom(pruned, atomId)) <= spare ? pruned : null;
+}
+
+/**
+ * Whether `atomId` could host `footprint` at all -- the predicate form of
+ * `pruneForOccupant`, for deciding up front whether to offer the gesture.
+ * Deliberately answers the question *after* a hypothetical prune, since
+ * dropping substituents to make room is a legitimate outcome; only the
+ * un-cuttable parent edge can make a replacement genuinely impossible.
+ */
+export function canHostOccupant(
+  graph: MoleculeGraph,
+  atomId: string,
+  footprint: OccupantFootprint,
+): boolean {
+  return pruneForOccupant(graph, atomId, footprint) !== null;
+}
+
+/**
  * Retypes `atomId` to `element`, first pruning whatever branches don't fit
  * the new element's valency so the atom never ends up hypervalent. Bonds
  * that still fit are left untouched. This is the click-to-replace counterpart
  * to `setAtomElement`, which deliberately skips pruning.
+ *
+ * A no-op (returns `graph` unchanged) when the atom's parent edge alone
+ * outweighs the new element -- e.g. a double-bonded carbon retyped to a
+ * halogen. Pruning can't cut a parent edge, so there is nothing to trim and
+ * the only honest answer is to decline; the same all-or-nothing rule rings
+ * and functional groups have always followed.
  */
 export function retypeAtomWithPrune(
   graph: MoleculeGraph,
   atomId: string,
   element: Element,
 ): MoleculeGraph {
-  const pruned = pruneToFitValency(graph, atomId, PERIODIC_TABLE[element].valency);
+  const pruned = pruneForOccupant(graph, atomId, elementFootprint(element));
+  if (!pruned) return graph;
   return setAtomElement(pruned, atomId, element);
+}
+
+/** Whether retyping `atomId` to `element` would succeed -- see `retypeAtomWithPrune` for when it wouldn't. */
+export function canRetypeAtom(graph: MoleculeGraph, atomId: string, element: Element): boolean {
+  return canHostOccupant(graph, atomId, elementFootprint(element));
 }
 
 /**
@@ -368,11 +457,27 @@ export function replaceAtomWithRing(
   const atom = getAtom(graph, atomId);
   if (atom.element !== "C" || hasRing(graph)) return graph;
 
-  const neededOpen = aromatic ? 3 : 2;
-  const pruned = pruneToFitValency(graph, atomId, PERIODIC_TABLE.C.valency - neededOpen);
-  if (!canInsertRing(pruned, atomId, aromatic)) return graph;
+  const pruned = pruneForOccupant(graph, atomId, ringFootprint(aromatic));
+  if (!pruned) return graph;
 
   return addRing(pruned, atomId, size, aromatic);
+}
+
+/**
+ * Whether replacing `atomId` with a ring would succeed. Same two-part shape
+ * as `canRetypeAtom` and `canReplaceWithGroup`: a domain rule about what may
+ * host a ring at all (a carbon, in a molecule that hasn't already got one --
+ * the engine supports a single ring), then the shared footprint arithmetic
+ * for whether it fits.
+ */
+export function canReplaceAtomWithRing(
+  graph: MoleculeGraph,
+  atomId: string,
+  aromatic: boolean,
+): boolean {
+  const atom = graph.atoms.find((a) => a.id === atomId);
+  if (!atom || atom.element !== "C" || hasRing(graph)) return false;
+  return canHostOccupant(graph, atomId, ringFootprint(aromatic));
 }
 
 /**

@@ -1,4 +1,5 @@
 import type { BondOrder, Element, MoleculeGraph } from "../graph/types";
+import { isReplaceableAtom } from "./replaceableAtom";
 import { findRing, isAromaticRing, openSlotCount, ringBondKeys } from "../graph/queries";
 import { angularDistance } from "../layout/hydrogens";
 import {
@@ -85,13 +86,6 @@ const AROMATIC_CIRCLE_SCALE = 0.6;
 function centroid(points: Point[]): Point {
   const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
   return { x: sum.x / points.length, y: sum.y / points.length };
-}
-
-// A pending ring always changes something concrete when it lands (there's no
-// single "already this" element to compare against), so only a plain armed
-// element -- already equal to the atom's own -- counts as a no-op.
-function isReplaceableAtom(selection: Selection, armedElement: Element, atomElement: Element): boolean {
-  return selection?.kind === "pendingRing" || atomElement !== armedElement;
 }
 
 /**
@@ -245,7 +239,7 @@ export function MoleculeEditor({
           label={labels.get(atom.id) ?? null}
           deleteMode={deleteMode}
           deletable={atom.id !== graph.rootId}
-          replaceable={isReplaceableAtom(selection, armedElement, atom.element)}
+          replaceable={isReplaceableAtom(graph, selection, armedElement, atom.id, atom.element)}
           onActivate={onAtomActivate}
         />
       ))}
