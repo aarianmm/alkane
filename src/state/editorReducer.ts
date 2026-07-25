@@ -18,6 +18,7 @@ import {
   canInsertRing,
   clampStubBondOrder,
   findAtomById,
+  isMethane,
   openSlotCount,
   usedValency,
 } from "../graph/queries";
@@ -95,7 +96,22 @@ function withMutation(state: EditorState, graph: MoleculeGraph, extra: Partial<E
   };
 }
 
+/**
+ * Every graph-changing path -- grow, replace, delete, clear, undo, redo --
+ * funnels through here, so this is the one place that needs to know Skeletal
+ * has nothing to draw for methane: whichever action just landed on it kicks
+ * the style back to Displayed, rather than leaving a disabled toolbar button
+ * selected and the canvas blank.
+ */
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
+  const next = editorReducerCore(state, action);
+  if (next.style === "skeletal" && isMethane(next.graph)) {
+    return { ...next, style: DEFAULT_STYLE };
+  }
+  return next;
+}
+
+function editorReducerCore(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case "GROW_ATOM": {
       // A stub click means "hang the armed ring off this open valence"

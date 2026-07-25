@@ -337,6 +337,53 @@ describe("SET_STYLE", () => {
     state = editorReducer(state, { type: "UNDO" });
     expect(state.style).toBe("structural");
   });
+
+  it("refuses to switch to Skeletal while the molecule is already methane", () => {
+    const state = editorReducer(createInitialState(), { type: "SET_STYLE", style: "skeletal" });
+    expect(state.style).toBe("displayed");
+  });
+
+  it("drops back to Displayed the moment any edit reduces the molecule to methane", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
+    state = editorReducer(state, { type: "SET_STYLE", style: "skeletal" });
+
+    state = editorReducer(state, { type: "DELETE_ATOM_AT", atomId: "1" });
+
+    expect(state.graph.atoms).toHaveLength(1);
+    expect(state.style).toBe("displayed");
+  });
+
+  it("drops back to Displayed on CLEAR_MOLECULE", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+    state = editorReducer(state, { type: "SET_STYLE", style: "skeletal" });
+
+    state = editorReducer(state, { type: "CLEAR_MOLECULE" });
+
+    expect(state.style).toBe("displayed");
+  });
+
+  it("drops back to Displayed when an undo lands back on methane", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+    state = editorReducer(state, { type: "SET_STYLE", style: "skeletal" });
+
+    state = editorReducer(state, { type: "UNDO" });
+
+    expect(state.graph.atoms).toHaveLength(1);
+    expect(state.style).toBe("displayed");
+  });
+
+  it("leaves Structural alone when an edit reduces the molecule to methane", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+    state = editorReducer(state, { type: "SET_STYLE", style: "structural" });
+
+    state = editorReducer(state, { type: "CLEAR_MOLECULE" });
+
+    expect(state.style).toBe("structural");
+  });
 });
 
 describe("delete mode", () => {
