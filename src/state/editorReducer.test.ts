@@ -319,7 +319,7 @@ describe("REPLACE_ATOM", () => {
     expect(state.selection).toBeNull();
   });
 
-  it("prunes the anchor's branches to free room for the armed ring", () => {
+  it("re-homes the anchor's branches onto the rest of the ring when there's no room to keep them on the anchor itself", () => {
     let state = createInitialState();
     state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
     state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "2"
@@ -330,8 +330,10 @@ describe("REPLACE_ATOM", () => {
 
     const ring = findRing(state.graph)!;
     expect(ring).toContain("1");
-    expect(findAtomById(state.graph, "2")).toBeUndefined();
-    expect(findAtomById(state.graph, "3")).toBeUndefined();
+    // Neither branch fits on "1" itself once the ring claims 3 of its slots,
+    // but both survive elsewhere on the ring rather than being destroyed.
+    expect(findAtomById(state.graph, "2")).toBeDefined();
+    expect(findAtomById(state.graph, "3")).toBeDefined();
   });
 
   it("stays armed and leaves the graph untouched when the clicked atom isn't a carbon", () => {
