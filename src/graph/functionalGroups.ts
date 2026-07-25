@@ -6,16 +6,19 @@ import { bondOrderBetween, findAtomById, openSlotCount } from "./queries";
  * The carbon-based functional groups the naming engine actually recognizes.
  * Kept to exactly this vocabulary -- anything else (e.g. sulfonic acids,
  * esters as a single dropped-in group) isn't nameable, so isn't offered here.
+ *
+ * Deliberately excluded are the groups that add just a single heavy atom to
+ * an existing one -- -OH, -SH, -NH2, and the aldehyde's carbonyl -O. Those
+ * are already a one-click gesture with the element and bond-order tools the
+ * toolbar has anyway (arm O, click a stub; arm O plus the double bond for a
+ * carbonyl), so a dedicated selector for them would earn nothing. What's left
+ * here is exactly the set that would otherwise take several clicks to build.
  */
 export type FunctionalGroupId =
   | "carboxylicAcid"
   | "acylChloride"
   | "amide"
   | "nitrile"
-  | "aldehyde"
-  | "hydroxyl"
-  | "thiol"
-  | "amine"
   | "nitro"
   | "methoxy";
 
@@ -81,26 +84,6 @@ export const FUNCTIONAL_GROUPS: Record<FunctionalGroupId, FunctionalGroupSpec> =
     label: "Nitrile",
     atoms: [{ element: "C" }, { element: "N", parentIndex: 0, bondOrder: 3 }],
   },
-  aldehyde: {
-    id: "aldehyde",
-    label: "Aldehyde",
-    atoms: [{ element: "C" }, { element: "O", parentIndex: 0, bondOrder: 2 }],
-  },
-  hydroxyl: {
-    id: "hydroxyl",
-    label: "Hydroxyl",
-    atoms: [{ element: "O" }],
-  },
-  thiol: {
-    id: "thiol",
-    label: "Thiol",
-    atoms: [{ element: "S" }],
-  },
-  amine: {
-    id: "amine",
-    label: "Amine",
-    atoms: [{ element: "N" }],
-  },
   // The engine's one legal hypervalent case: R-N(=O)(=O), a neutral nitrogen
   // deliberately past its nominal valency of 3 (1 to R + 2 + 2 = 5). See
   // canAttachmentCarryOrder below for how that exception is threaded through
@@ -123,10 +106,6 @@ export const FUNCTIONAL_GROUPS: Record<FunctionalGroupId, FunctionalGroupSpec> =
 
 /** Display order for the toolbar menu -- roughly the order they're taught in. */
 export const FUNCTIONAL_GROUP_IDS: FunctionalGroupId[] = [
-  "hydroxyl",
-  "amine",
-  "thiol",
-  "aldehyde",
   "carboxylicAcid",
   "acylChloride",
   "amide",

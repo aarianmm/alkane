@@ -7,7 +7,7 @@ describe("groupMenuLabel", () => {
   });
 
   it("names the armed group", () => {
-    expect(groupMenuLabel("hydroxyl")).toBe("Hydroxyl");
+    expect(groupMenuLabel("methoxy")).toBe("Methoxy");
     expect(groupMenuLabel("carboxylicAcid")).toBe("Carboxylic acid");
     expect(groupMenuLabel("nitro")).toBe("Nitro");
   });
