@@ -1,5 +1,7 @@
 import type { BondOrder, Element } from "../graph/types";
+import { FUNCTIONAL_GROUPS, FUNCTIONAL_GROUP_IDS, type FunctionalGroupId } from "../graph/functionalGroups";
 import type { StyleId } from "../styles";
+import { groupMenuLabel } from "./groupMenuLabel";
 import { ringMenuLabel } from "./ringMenuLabel";
 import { ToolbarMenu, ToolbarMenuItem } from "./ToolbarMenu";
 import styles from "./Toolbar.module.css";
@@ -34,6 +36,9 @@ interface ToolbarProps {
   /** The currently-armed ring, waiting for a stub click, or null if none is armed. */
   activeRing: { size: number; aromatic: boolean } | null;
   onSelectRing: (size: number, aromatic: boolean) => void;
+  /** The currently-armed functional group, waiting for a stub/atom click, or null if none is armed. */
+  activeGroup: FunctionalGroupId | null;
+  onSelectGroup: (groupId: FunctionalGroupId) => void;
   /** Whether sticky click-to-delete mode is currently on -- shows the Delete button pressed. */
   deleteMode: boolean;
   onDelete: () => void;
@@ -55,6 +60,8 @@ export function Toolbar({
   canSelectRing,
   activeRing,
   onSelectRing,
+  activeGroup,
+  onSelectGroup,
   deleteMode,
   onDelete,
   onClear,
@@ -109,6 +116,24 @@ export function Toolbar({
           >
             Benzene ⌬
           </ToolbarMenuItem>
+        </ToolbarMenu>
+        {/*
+          Functional groups are held and placed exactly like rings -- arm one
+          here, then click a stub to grow it or an atom to replace it in
+          place -- so this menu lives in the same group as elements and rings
+          rather than a row of its own.
+        */}
+        <ToolbarMenu label={groupMenuLabel(activeGroup)} active={activeGroup !== null} ariaLabel="Functional group">
+          {FUNCTIONAL_GROUP_IDS.map((groupId) => (
+            <ToolbarMenuItem
+              key={groupId}
+              active={activeGroup === groupId}
+              onSelect={() => onSelectGroup(groupId)}
+              title={`Click a stub to grow, or an atom to replace it with, ${FUNCTIONAL_GROUPS[groupId].label.toLowerCase()}`}
+            >
+              {FUNCTIONAL_GROUPS[groupId].label}
+            </ToolbarMenuItem>
+          ))}
         </ToolbarMenu>
       </div>
       <div className={styles.group} aria-label="Bond order">
