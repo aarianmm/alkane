@@ -15,7 +15,7 @@ describe("FUNCTIONAL_GROUPS vocabulary", () => {
   it("is exactly the engine-supported list, each appearing once in the menu order", () => {
     const ids = Object.keys(FUNCTIONAL_GROUPS).sort();
     expect(ids).toEqual(
-      ["acylChloride", "amide", "carboxylicAcid", "methoxy", "nitrile", "nitro"].sort(),
+      ["acylChloride", "amide", "carbonyl", "carboxylicAcid", "methoxy", "nitrile", "nitro"].sort(),
     );
     expect(new Set(FUNCTIONAL_GROUP_IDS).size).toBe(FUNCTIONAL_GROUP_IDS.length);
     expect(FUNCTIONAL_GROUP_IDS.sort()).toEqual(ids);
@@ -23,6 +23,7 @@ describe("FUNCTIONAL_GROUPS vocabulary", () => {
 
   it("every group is grown correctly off a fresh stub, atom-for-atom and bond-for-bond", () => {
     const expected: Record<FunctionalGroupId, { atomCount: number; elements: string[] }> = {
+      carbonyl: { atomCount: 2, elements: ["C", "O"] },
       carboxylicAcid: { atomCount: 3, elements: ["C", "O", "O"] },
       acylChloride: { atomCount: 3, elements: ["C", "O", "Cl"] },
       amide: { atomCount: 3, elements: ["C", "O", "N"] },
@@ -156,17 +157,18 @@ describe("canReplaceWithGroup", () => {
     expect(canReplaceWithGroup(graph, "1", "methoxy")).toBe(false);
   });
 
-  it("refuses every group through a double-bonded parent edge -- none has an attachment atom with room to spare", () => {
+  it("accepts a double-bonded parent edge only where the attachment atom has room to spare", () => {
     let graph = createSeedGraph();
     graph = addAtomFromStub(graph, "0", "C", 2); // "1", double-bonded to its parent
 
-    // Every group left in this vocabulary spends all but one of its
-    // attachment atom's slots on its own internal bonds (carboxylic acid's
-    // =O + -OH, nitrile's triple bond, methoxy's -CH3, and so on), so a
-    // parent bond above order 1 never fits. The single-atom groups that
-    // could carry one -- -OH, -SH, -NH2 -- are deliberately not offered
-    // here, since the element tool already places those in one click.
-    for (const groupId of FUNCTIONAL_GROUP_IDS) {
+    // Carbonyl's carbon spends only 2 of its 4 slots on its own =O, so it is
+    // the single group here that can carry a parent bond above order 1.
+    // Every other group spends all but one slot internally (carboxylic
+    // acid's =O + -OH, nitrile's triple bond, methoxy's -CH3), leaving room
+    // for a single bond and nothing more.
+    expect(canReplaceWithGroup(graph, "1", "carbonyl")).toBe(true);
+
+    for (const groupId of FUNCTIONAL_GROUP_IDS.filter((id) => id !== "carbonyl")) {
       expect(canReplaceWithGroup(graph, "1", groupId)).toBe(false);
     }
   });
@@ -213,13 +215,14 @@ describe("replaceAtomWithFunctionalGroup", () => {
     expect(result).toBe(graph);
   });
 
-  it("drops every substituent off a non-root target -- no group in this vocabulary has a slot left after its own bonds plus the parent edge", () => {
-    // A consequence of offering only multi-atom groups: each one's
-    // attachment atom is exactly saturated by the group's own internal
-    // bonds plus the parent edge, so on any atom that *has* a parent edge
-    // there is never room to retain a substituent. (Replacing the root seed
-    // atom is the one exception -- it has no parent edge, freeing one slot;
-    // see the root-replacement cases below.)
+  it("retains a substituent off a non-root target only where the group leaves a slot for one", () => {
+    // Carbonyl's carbon has 4 slots, 2 spent on its own =O: one for the
+    // parent edge and one left over, which is precisely the difference
+    // between an aldehyde and a ketone. Every other group is exactly
+    // saturated by its own bonds plus the parent edge, so on any atom that
+    // *has* a parent edge there is no room to retain anything. (Replacing
+    // the root seed atom is the general exception -- no parent edge, so one
+    // more slot free; see the root-replacement cases below.)
     for (const groupId of FUNCTIONAL_GROUP_IDS) {
       let graph = createSeedGraph();
       graph = addAtomFromStub(graph, "0", "C", 1); // "1", target
@@ -228,8 +231,34 @@ describe("replaceAtomWithFunctionalGroup", () => {
       const replaced = replaceAtomWithFunctionalGroup(graph, "1", groupId);
 
       expect(findAtomById(replaced, "1")!.bonds.some((b) => b.to === "0")).toBe(true); // parent edge kept
-      expect(findAtomById(replaced, "2")).toBeUndefined(); // the fluorine never survives
+      expect(findAtomById(replaced, "2") !== undefined).toBe(groupId === "carbonyl");
     }
+  });
+
+  it("carbonyl is the general C=O: a ketone when it keeps a second carbon, an aldehyde when it doesn't", () => {
+    // Same group, same call -- which molecule it is depends only on what the
+    // target already carried, which is why the vocabulary names the group
+    // rather than either product.
+    let ketone = createSeedGraph();
+    ketone = addAtomFromStub(ketone, "0", "C", 1); // "1", target
+    ketone = addAtomFromStub(ketone, "1", "C", 1); // "2", the second carbon
+
+    ketone = replaceAtomWithFunctionalGroup(ketone, "1", "carbonyl");
+
+    const ketoneCarbon = findAtomById(ketone, "1")!;
+    expect(ketoneCarbon.element).toBe("C");
+    expect(usedValency(ketoneCarbon)).toBe(4); // parent + retained carbon + the =O
+    expect(openSlotCount(ketoneCarbon)).toBe(0); // no implicit H: a ketone
+    expect(findAtomById(ketone, "2")).toBeDefined();
+
+    let aldehyde = createSeedGraph();
+    aldehyde = addAtomFromStub(aldehyde, "0", "C", 1); // "1", target with nothing else on it
+
+    aldehyde = replaceAtomWithFunctionalGroup(aldehyde, "1", "carbonyl");
+
+    const aldehydeCarbon = findAtomById(aldehyde, "1")!;
+    expect(usedValency(aldehydeCarbon)).toBe(3); // parent + the =O
+    expect(openSlotCount(aldehydeCarbon)).toBe(1); // that lone open slot is the aldehyde's H
   });
 
   it("preserves the maximum number of substituents, dropping only what has no room, with the parent edge always kept and valency never broken", () => {

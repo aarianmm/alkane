@@ -14,13 +14,20 @@ import { findAtomById, openSlotCount } from "./queries";
  * esters as a single dropped-in group) isn't nameable, so isn't offered here.
  *
  * Deliberately excluded are the groups that add just a single heavy atom to
- * an existing one -- -OH, -SH, -NH2, and the aldehyde's carbonyl -O. Those
- * are already a one-click gesture with the element and bond-order tools the
- * toolbar has anyway (arm O, click a stub; arm O plus the double bond for a
- * carbonyl), so a dedicated selector for them would earn nothing. What's left
- * here is exactly the set that would otherwise take several clicks to build.
+ * an existing one -- -OH, -SH, -NH2. Those are already a one-click gesture
+ * with the element tool the toolbar has anyway (arm O, click a stub), so a
+ * dedicated selector for them would earn nothing. What's left here is exactly
+ * the set that would otherwise take several clicks to build.
+ *
+ * `carbonyl` is the general C=O, and is named for the group rather than for
+ * either molecule built on it, because the graph cannot tell those apart
+ * until the rest of the skeleton exists: the same fragment reads as an
+ * aldehyde with one carbon neighbour and a ketone with two. Naming it
+ * "aldehyde" would be a claim the editor is in no position to make, and would
+ * be wrong the moment a second substituent lands on it.
  */
 export type FunctionalGroupId =
+  | "carbonyl"
   | "carboxylicAcid"
   | "acylChloride"
   | "amide"
@@ -58,6 +65,16 @@ interface FunctionalGroupSpec {
  * already-listed atom.
  */
 export const FUNCTIONAL_GROUPS: Record<FunctionalGroupId, FunctionalGroupSpec> = {
+  // The bare C=O every group below it is a decoration of. Its carbon spends
+  // only 2 of its 4 slots internally, which makes it the one group with room
+  // left over: it can sit on a double-bonded atom, and it keeps a substituent
+  // where the others must drop them (that retained substituent is exactly
+  // what makes it read as a ketone rather than an aldehyde).
+  carbonyl: {
+    id: "carbonyl",
+    label: "Carbonyl",
+    atoms: [{ element: "C" }, { element: "O", parentIndex: 0, bondOrder: 2 }],
+  },
   carboxylicAcid: {
     id: "carboxylicAcid",
     label: "Carboxylic acid",
@@ -112,6 +129,7 @@ export const FUNCTIONAL_GROUPS: Record<FunctionalGroupId, FunctionalGroupSpec> =
 
 /** Display order for the toolbar menu -- roughly the order they're taught in. */
 export const FUNCTIONAL_GROUP_IDS: FunctionalGroupId[] = [
+  "carbonyl",
   "carboxylicAcid",
   "acylChloride",
   "amide",
