@@ -185,3 +185,28 @@ export function canInsertRing(graph: MoleculeGraph, anchorId: string, aromatic: 
   if (!anchor || anchor.element !== "C") return false;
   return openSlotCount(anchor) >= (aromatic ? 3 : 2);
 }
+
+/**
+ * The highest bond order a stub click may use without making either end of
+ * the new bond hypervalent: whatever's armed on the toolbar, brought down to
+ * fit both the parent's remaining open slots and the new atom's own nominal
+ * valency. A stub is only ever rendered on a parent with at least one open
+ * slot, so the result is always >= 1 in practice -- but this asserts that
+ * rather than silently handing back a zero-or-negative order, since a caller
+ * bug here would otherwise surface as a much stranger failure downstream.
+ *
+ * Takes raw numbers rather than an Atom/Element pair so the one clamp serves
+ * both stub-click paths: growing a plain atom (whose cap is just the new
+ * element's nominal valency) and growing a ring's anchor carbon (whose cap
+ * is reduced further, by however many slots the ring itself needs to reserve
+ * on that fresh anchor -- see GROW_ATOM's pending-ring branch).
+ */
+export function clampStubBondOrder(
+  armedOrder: BondOrder,
+  parentOpenSlots: number,
+  newAtomMaxOrder: number,
+): BondOrder {
+  const clamped = Math.min(armedOrder, parentOpenSlots, newAtomMaxOrder);
+  if (clamped < 1) throw new Error("Stub click produced a non-positive bond order");
+  return clamped as BondOrder;
+}

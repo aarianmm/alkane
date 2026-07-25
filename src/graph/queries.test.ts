@@ -4,6 +4,7 @@ import { addAtomFromStub, addRing, closeRingBond, setBondOrder } from "./mutatio
 import {
   bondOrderBetween,
   canInsertRing,
+  clampStubBondOrder,
   findRing,
   hasRing,
   isAromaticRing,
@@ -217,5 +218,23 @@ describe("canInsertRing", () => {
     const graph = addRing(createSeedGraph(), "0", 6, false);
     const ring = findRing(graph)!;
     expect(canInsertRing(graph, ring[1], false)).toBe(false);
+  });
+});
+
+describe("clampStubBondOrder", () => {
+  it("brings a triple bond down to whatever's left of the parent's open slots", () => {
+    expect(clampStubBondOrder(3, 1, 4)).toBe(1);
+  });
+
+  it("brings a triple bond down to the new atom's own nominal valency", () => {
+    expect(clampStubBondOrder(3, 4, 2)).toBe(2); // e.g. growing an oxygen (valency 2)
+  });
+
+  it("passes the armed order through unclamped when there's plenty of room on both ends", () => {
+    expect(clampStubBondOrder(2, 4, 4)).toBe(2);
+  });
+
+  it("throws rather than returning a non-positive order", () => {
+    expect(() => clampStubBondOrder(2, 0, 4)).toThrow();
   });
 });
