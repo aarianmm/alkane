@@ -1,4 +1,5 @@
 import type { BondOrder, Element, MoleculeGraph } from "../graph/types";
+import { canReplaceWithGroup } from "../graph/functionalGroups";
 import { findRing, isAromaticRing, openSlotCount, ringBondKeys } from "../graph/queries";
 import { angularDistance } from "../layout/hydrogens";
 import {
@@ -89,9 +90,19 @@ function centroid(points: Point[]): Point {
 
 // A pending ring always changes something concrete when it lands (there's no
 // single "already this" element to compare against), so only a plain armed
-// element -- already equal to the atom's own -- counts as a no-op.
-function isReplaceableAtom(selection: Selection, armedElement: Element, atomElement: Element): boolean {
-  return selection?.kind === "pendingRing" || atomElement !== armedElement;
+// element -- already equal to the atom's own -- counts as a no-op. A pending
+// group defers to canReplaceWithGroup, since not every atom is a legal host
+// for every group (e.g. a halogen can never host -COOH).
+function isReplaceableAtom(
+  graph: MoleculeGraph,
+  selection: Selection,
+  armedElement: Element,
+  atomId: string,
+  atomElement: Element,
+): boolean {
+  if (selection?.kind === "pendingRing") return true;
+  if (selection?.kind === "pendingGroup") return canReplaceWithGroup(graph, atomId, selection.groupId);
+  return atomElement !== armedElement;
 }
 
 /**
@@ -245,7 +256,7 @@ export function MoleculeEditor({
           label={labels.get(atom.id) ?? null}
           deleteMode={deleteMode}
           deletable={atom.id !== graph.rootId}
-          replaceable={isReplaceableAtom(selection, armedElement, atom.element)}
+          replaceable={isReplaceableAtom(graph, selection, armedElement, atom.id, atom.element)}
           onActivate={onAtomActivate}
         />
       ))}

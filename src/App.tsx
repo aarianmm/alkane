@@ -49,6 +49,7 @@ function App() {
   // stub's valency is checked at click time.
   const canSelectRing = !hasRing(state.graph);
   const activeRing = selection?.kind === "pendingRing" ? { size: selection.size, aromatic: selection.aromatic } : null;
+  const activeGroup = selection?.kind === "pendingGroup" ? selection.groupId : null;
 
   return (
     <div
@@ -62,7 +63,7 @@ function App() {
       }}
     >
       <Toolbar
-        activeElement={activeRing ? null : state.tool.element}
+        activeElement={activeRing || activeGroup ? null : state.tool.element}
         activeBondOrder={state.tool.bondOrder}
         onSelectElement={(element) => dispatch({ type: "SET_TOOL_ELEMENT", element })}
         onSelectBondOrder={(order) => dispatch({ type: "SET_TOOL_BOND_ORDER", bondOrder: order })}
@@ -72,6 +73,8 @@ function App() {
         canSelectRing={canSelectRing}
         activeRing={activeRing}
         onSelectRing={(size, aromatic) => dispatch({ type: "SELECT_RING", size, aromatic })}
+        activeGroup={activeGroup}
+        onSelectGroup={(groupId) => dispatch({ type: "SELECT_GROUP", groupId })}
         deleteMode={deleteMode}
         onDelete={() => dispatch({ type: "TOGGLE_DELETE_MODE" })}
         onClear={() => dispatch({ type: "CLEAR_MOLECULE" })}
