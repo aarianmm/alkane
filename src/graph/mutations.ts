@@ -1,5 +1,5 @@
 import { PERIODIC_TABLE, type Atom, type BondOrder, type Element, type MoleculeGraph } from "./types";
-import { findRing, hasRing, openSlotCount, usedValency } from "./queries";
+import { canInsertRing, findRing, hasRing, openSlotCount, usedValency } from "./queries";
 
 function getAtom(graph: MoleculeGraph, id: string): Atom {
   const atom = graph.atoms.find((a) => a.id === id);
@@ -238,6 +238,30 @@ export function deleteBond(graph: MoleculeGraph, atomIdA: string, atomIdB: strin
 }
 
 /**
+ * Removes every bond from `atomId` to one of `toIds` in one shot (both
+ * directions), then prunes whatever that disconnects from root — the
+ * multi-edge generalization of `deleteBond`'s reachability check. Cutting a
+ * subset of edges all at once, and only then checking what's still
+ * reachable, is what makes this safe for a ring atom's two ring bonds:
+ * severing either one alone just reopens the ring (nothing lost), but
+ * severing *both* is what actually strands the rest of the ring, and that
+ * interaction only shows up when the whole subset is removed together —
+ * summing each edge's cost as if cut in isolation would miss it entirely.
+ */
+function removeBondsAndPrune(graph: MoleculeGraph, atomId: string, toIds: string[]): MoleculeGraph {
+  const cut = new Set(toIds);
+  const edgeRemoved = graph.atoms.map((a) => {
+    if (a.id === atomId) return { ...a, bonds: a.bonds.filter((b) => !cut.has(b.to)) };
+    if (cut.has(a.id)) return { ...a, bonds: a.bonds.filter((b) => b.to !== atomId) };
+    return a;
+  });
+
+  const reachable = reachableFrom(edgeRemoved, graph.rootId);
+  if (reachable.size === edgeRemoved.length) return { ...graph, atoms: edgeRemoved };
+  return { ...graph, atoms: edgeRemoved.filter((a) => reachable.has(a.id)) };
+}
+
+/**
  * Trims the lowest-priority bonds off `atomId` until its used valency fits
  * within `targetValency` — the shared "make this atom legal again after its
  * element/valency shrank" primitive, reused by both the element-replace and
@@ -245,21 +269,22 @@ export function deleteBond(graph: MoleculeGraph, atomIdA: string, atomIdB: strin
  * root) is never touched, so the atom always keeps its path to root; every
  * other bond is a candidate.
  *
- * Each cut is applied with `deleteBond`, so it inherits that function's
- * ring-aware behavior for free: cutting a ring bond just reopens the ring
- * (nothing is disconnected, since the rest of the ring is still reachable the
- * other way around), while cutting a plain tree bond prunes that whole
- * branch, exactly like `deleteAtomSubtree`. Candidates are therefore ranked
- * by how many atoms a cut would actually cost (cheapest first, so ring bonds
- * and small leaf branches go before anything substantial), tie-broken by
- * preferring the highest slot ordinal — the least-primary, most branch-like
- * attachment — so the main chain continuation (slot 1) survives longest.
+ * Candidates are trimmed as a single chosen *subset*, not one cheapest bond
+ * at a time: a step-at-a-time greedy can be fooled into spending a cheap bond
+ * first only to discover it still has to cut an expensive one anyway, when
+ * cutting just the expensive one (whose order alone covers the whole
+ * shortfall) would have kept more atoms around outright. Since candidates
+ * top out at a handful (valency never exceeds 4), every subset is simply
+ * tried: among those whose combined order closes the gap to `targetValency`,
+ * the one costing the fewest atoms wins (via `removeBondsAndPrune`, so ring
+ * bonds are costed correctly, interactions included); ties prefer cutting
+ * fewer bonds, then the higher slot ordinals — the least-primary, most
+ * branch-like attachments — so the main chain continuation (slot 1) survives
+ * longest, then the lowest neighbor ids for determinism. If every candidate
+ * together still doesn't close the gap, all of them are cut — the same
+ * "stops there" exhaustion the old step-at-a-time version had.
  *
- * A no-op (valency already fits) returns `graph` itself unchanged. If the
- * atom runs out of trimmable bonds before reaching the target (only the
- * parent edge is left, and its own order still overshoots), pruning stops
- * there — this never touches the parent bond's order, which is outside this
- * helper's scope.
+ * A no-op (valency already fits) returns `graph` itself unchanged.
  *
  * `protectedNeighborId`, when given, is excluded from the candidates exactly
  * like the parent edge — for `setBondOrderWithPrune`, which needs to free
@@ -272,40 +297,42 @@ export function pruneToFitValency(
   targetValency: number,
   protectedNeighborId?: string,
 ): MoleculeGraph {
-  let current = graph;
+  const atom = getAtom(graph, atomId);
+  const deficit = usedValency(atom) - targetValency;
+  if (deficit <= 0) return graph;
 
-  while (usedValency(getAtom(current, atomId)) > targetValency) {
-    const atom = getAtom(current, atomId);
-    const candidates = atom.bonds.filter(
-      (bond) => bond.to !== atom.parentId && bond.to !== protectedNeighborId,
-    );
-    if (candidates.length === 0) break;
+  const candidates = atom.bonds.filter(
+    (bond) => bond.to !== atom.parentId && bond.to !== protectedNeighborId,
+  );
+  if (candidates.length === 0) return graph;
 
-    let bestTo: string | null = null;
-    let bestCost = Infinity;
-    let bestSlot = -Infinity;
-    for (const bond of candidates) {
-      const without = deleteBond(current, atomId, bond.to);
-      const cost = current.atoms.length - without.atoms.length;
-      const neighbor = getAtom(current, bond.to);
-      const slot = neighbor.parentId === atomId ? (neighbor.slotFromParent ?? 0) : Infinity;
+  const slotOf = (to: string): number => {
+    const neighbor = getAtom(graph, to);
+    return neighbor.parentId === atomId ? (neighbor.slotFromParent ?? 0) : Infinity;
+  };
 
-      const better =
-        bestTo === null ||
-        cost < bestCost ||
-        (cost === bestCost && slot > bestSlot) ||
-        (cost === bestCost && slot === bestSlot && Number(bond.to) > Number(bestTo));
-      if (better) {
-        bestTo = bond.to;
-        bestCost = cost;
-        bestSlot = slot;
-      }
-    }
+  type Choice = { toIds: string[]; cost: number };
+  let best: Choice | null = null;
+  const fullSet = candidates.map((b) => b.to);
 
-    current = deleteBond(current, atomId, bestTo!);
+  for (let mask = 1; mask < 1 << candidates.length; mask++) {
+    const subset = candidates.filter((_, i) => mask & (1 << i));
+    if (subset.reduce((sum, b) => sum + b.order, 0) < deficit) continue; // doesn't close the gap
+
+    const toIds = subset.map((b) => b.to);
+    const cost = graph.atoms.length - removeBondsAndPrune(graph, atomId, toIds).atoms.length;
+
+    const better =
+      best === null ||
+      cost < best.cost ||
+      (cost === best.cost && toIds.length < best.toIds.length) ||
+      (cost === best.cost &&
+        toIds.length === best.toIds.length &&
+        Math.min(...toIds.map(slotOf)) > Math.min(...best.toIds.map(slotOf)));
+    if (better) best = { toIds, cost };
   }
 
-  return current;
+  return removeBondsAndPrune(graph, atomId, best?.toIds ?? fullSet);
 }
 
 /**
@@ -323,106 +350,14 @@ export function retypeAtomWithPrune(
   return setAtomElement(pruned, atomId, element);
 }
 
-/** A neighbour bumped off its host, still carrying the bond order it needs re-homed at. */
-export interface DisplacedNeighbour {
-  atomId: string;
-  order: BondOrder;
-}
-
-/**
- * Re-homes as many `displaced` neighbours as will fit somewhere among
- * `hostIds`, and deletes (subtree and all) whichever ones don't. Shared by any
- * mutation that frees up an atom's slots by growing fresh atoms elsewhere for
- * its old neighbours to move onto — ring insertion today, and a
- * functional-group replacement elsewhere are both just "here are some orphaned
- * branches, here are some atoms with spare valency, do your best" — so this
- * helper carries no ring-specific (or any other feature's) assumptions.
- *
- * Each candidate host's available room is read fresh off the graph via
- * `openSlotCount`, so hosts can already carry other bonds (e.g. a ring
- * anchor's own parent edge, or a ring atom's two ring bonds) — this only ever
- * spends whatever room is left after that.
- *
- * Placement is greedy, in an order designed to maximise how many neighbours
- * survive: lowest bond order first, since a order-1 neighbour fits almost
- * anywhere while an order-2 or order-3 one is picky, so clearing the easy
- * cases first leaves the most room for the hard ones. Within the same order,
- * bigger subtrees go first, so if capacity runs out partway through an order
- * class it's the smallest (cheapest to lose) one of that class that misses
- * out — the same "cut the least-costly branch" preference `pruneToFitValency`
- * uses. Each neighbour is placed on whichever eligible host currently has the
- * *least* remaining room that still fits it (best-fit), saving roomier hosts
- * for whatever's placed after.
- *
- * A neighbour that fits nowhere is dropped via a plain subtree removal — safe
- * because the caller has already severed it from its old host, so nothing
- * else in the graph depends on it, and its own descendants go with it.
- */
-export function reattachDisplacedNeighbours(
-  graph: MoleculeGraph,
-  displaced: DisplacedNeighbour[],
-  hostIds: string[],
-): MoleculeGraph {
-  const queue = displaced
-    .map((d) => ({ ...d, cost: reachableFrom(graph.atoms, d.atomId).size }))
-    .sort((a, b) => a.order - b.order || b.cost - a.cost);
-
-  let current = graph;
-  const room = new Map(hostIds.map((id) => [id, openSlotCount(getAtom(current, id))]));
-
-  for (const item of queue) {
-    let bestHost: string | null = null;
-    let bestRoom = Infinity;
-    for (const hostId of hostIds) {
-      const free = room.get(hostId)!;
-      if (free >= item.order && free < bestRoom) {
-        bestHost = hostId;
-        bestRoom = free;
-      }
-    }
-
-    if (bestHost === null) {
-      const orphaned = reachableFrom(current.atoms, item.atomId);
-      current = { ...current, atoms: current.atoms.filter((a) => !orphaned.has(a.id)) };
-      continue;
-    }
-
-    const slot = nextFreeSlot(current, bestHost);
-    current = replaceAtom(current, bestHost, (host) => ({
-      ...host,
-      bonds: [...host.bonds, { to: item.atomId, order: item.order }],
-    }));
-    current = replaceAtom(current, item.atomId, (neighbor) => ({
-      ...neighbor,
-      bonds: [...neighbor.bonds, { to: bestHost, order: item.order }],
-      parentId: bestHost,
-      slotFromParent: slot,
-    }));
-    room.set(bestHost, bestRoom - item.order);
-  }
-
-  return current;
-}
-
 /**
  * Replaces the carbon at `atomId` with a ring of `size` atoms, anchored where
- * it stood. Unlike a plain valency shrink, a ring insertion isn't purely
- * destructive: the ring itself introduces `size - 1` brand-new carbons, each
- * with spare valency of its own, so an existing neighbour that no longer fits
- * on the anchor can often move to one of those new atoms instead of being
- * deleted — see `reattachDisplacedNeighbours`. Only when there's genuinely no
- * room anywhere in the new ring does a neighbour actually get dropped.
- *
- * Every one of the anchor's non-parent bonds is detached first (the anchor's
- * path to root is the one thing that's never touched), the ring is grown
- * through the now-bare anchor, and then every detached neighbour competes for
- * whatever open valency the ring — anchor included — ended up with.
- *
- * Entirely a no-op, returning `graph` unchanged, when the atom isn't a carbon,
- * the molecule already has a ring, or the anchor's own parent bond alone
- * already leaves less than the ring needs (2 plain / 3 aromatic) — no amount
- * of redistribution can help there, so this is checked before anything is
- * mutated, keeping the whole operation all-or-nothing.
+ * it stood — pruning branches off it first if it doesn't already have the
+ * open valency the ring needs (2 plain / 3 aromatic). Entirely a no-op,
+ * returning `graph` unchanged, when the atom isn't a carbon, the molecule
+ * already has a ring, or there still isn't enough room after pruning: this is
+ * all-or-nothing, so a doomed attempt never leaves a partially-pruned atom
+ * behind.
  */
 export function replaceAtomWithRing(
   graph: MoleculeGraph,
@@ -434,34 +369,10 @@ export function replaceAtomWithRing(
   if (atom.element !== "C" || hasRing(graph)) return graph;
 
   const neededOpen = aromatic ? 3 : 2;
-  const parentOrder = atom.bonds.find((b) => b.to === atom.parentId)?.order ?? 0;
-  if (PERIODIC_TABLE.C.valency - parentOrder < neededOpen) return graph;
+  const pruned = pruneToFitValency(graph, atomId, PERIODIC_TABLE.C.valency - neededOpen);
+  if (!canInsertRing(pruned, atomId, aromatic)) return graph;
 
-  const displaced: DisplacedNeighbour[] = atom.bonds
-    .filter((b) => b.to !== atom.parentId)
-    .map((b) => ({ atomId: b.to, order: b.order }));
-
-  let bare = graph;
-  for (const d of displaced) {
-    bare = replaceAtom(bare, atomId, (a) => ({ ...a, bonds: a.bonds.filter((b) => b.to !== d.atomId) }));
-    bare = replaceAtom(bare, d.atomId, (a) => ({
-      ...a,
-      bonds: a.bonds.filter((b) => b.to !== atomId),
-      parentId: undefined,
-      slotFromParent: undefined,
-    }));
-  }
-
-  // The ring's new atoms get ids `bare.nextId`, `bare.nextId + 1`, ... in the
-  // order addRing/addAtomFromStub hands them out, so the full ring-atom set
-  // is read off directly here rather than re-derived via `findRing` — that
-  // query infers a cycle purely from edge count vs. atom count, which the
-  // detached neighbours above would throw off (they're still sitting in
-  // `atoms` with no bonds of their own until reattachDisplacedNeighbours
-  // resolves them, wrongly deflating the edge count relative to atom count).
-  const newRingAtomIds = Array.from({ length: size - 1 }, (_, i) => String(bare.nextId + i));
-  const ringed = addRing(bare, atomId, size, aromatic);
-  return reattachDisplacedNeighbours(ringed, displaced, [atomId, ...newRingAtomIds]);
+  return addRing(pruned, atomId, size, aromatic);
 }
 
 /**

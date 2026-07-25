@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSeedGraph, type MoleculeGraph } from "./types";
+import { createSeedGraph } from "./types";
 import {
   addAtomFromStub,
   addRing,
@@ -8,7 +8,6 @@ import {
   deleteAtomSubtree,
   deleteBond,
   pruneToFitValency,
-  reattachDisplacedNeighbours,
   replaceAtomWithRing,
   retypeAtomWithPrune,
   setAtomElement,
@@ -24,8 +23,6 @@ import {
   findRing,
   usedValency,
 } from "./queries";
-import { layoutFromRoot } from "../layout/geometry";
-import { displayed } from "../styles/displayed";
 
 describe("createSeedGraph", () => {
   it("starts with one open carbon", () => {
@@ -484,6 +481,30 @@ describe("pruneToFitValency", () => {
     expect(graph.atoms.map((a) => a.id).sort()).toEqual([graph.rootId, "1"]);
     expect(usedValency(findAtomById(graph, "1")!)).toBe(1);
   });
+
+  it("cuts one double bond rather than a cheaper single bond plus that same double bond", () => {
+    // "1" has two branches: a single-bonded leaf ("2", cost 1 atom) and a
+    // double-bonded branch with two children of its own ("3", cost 3 atoms).
+    // Freeing 2 valency needs only "3" cut (its order-2 bond alone closes the
+    // gap) -- cutting the cheaper leaf "2" first, as a step-at-a-time
+    // cheapest-first greedy would, doesn't free enough room on its own and
+    // still forces "3" to go too, losing both branches instead of just one.
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // anchor = "1"
+    graph = addAtomFromStub(graph, "1", "O", 1); // "2" -- single-bonded leaf
+    graph = addAtomFromStub(graph, "1", "C", 2); // "3" -- double-bonded
+    graph = addAtomFromStub(graph, "3", "C", 1); // "4" -- "3"'s child
+    graph = addAtomFromStub(graph, "3", "C", 1); // "5" -- "3"'s other child
+    expect(usedValency(findAtomById(graph, "1")!)).toBe(4); // parent(1) + leaf(1) + double(2)
+
+    graph = pruneToFitValency(graph, "1", 2); // need to shed 2
+
+    expect(findAtomById(graph, "2")).toBeDefined(); // the cheap leaf survives
+    expect(findAtomById(graph, "3")).toBeUndefined(); // the double bond -- and its subtree -- is cut instead
+    expect(findAtomById(graph, "4")).toBeUndefined();
+    expect(findAtomById(graph, "5")).toBeUndefined();
+    expect(usedValency(findAtomById(graph, "1")!)).toBe(2);
+  });
 });
 
 describe("retypeAtomWithPrune", () => {
@@ -532,23 +553,19 @@ describe("replaceAtomWithRing", () => {
     expect(ring).toContain("1");
   });
 
-  it("re-homes branches onto other ring atoms instead of destroying them, when the anchor lacks the open valency", () => {
+  it("prunes branches off the anchor first when it lacks the open valency", () => {
     let graph = createSeedGraph();
     graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1"
     graph = addAtomFromStub(graph, "1", "O", 1); // "2"
     graph = addAtomFromStub(graph, "1", "N", 1); // "3" -- "1" now has only 1 open slot
     expect(openSlotCount(findAtomById(graph, "1")!)).toBe(1);
 
-    graph = replaceAtomWithRing(graph, "1", 6, true); // aromatic needs 3 open slots, leaving none directly on "1"
+    graph = replaceAtomWithRing(graph, "1", 6, true); // aromatic needs 3 open slots
 
     const ring = findRing(graph)!;
     expect(ring).toContain("1");
-    // Neither branch fit on the anchor itself, but both survive elsewhere on the ring.
-    expect(findAtomById(graph, "2")).toBeDefined();
-    expect(findAtomById(graph, "3")).toBeDefined();
-    expect(bondOrderBetween(graph, findAtomById(graph, "2")!.parentId!, "2")).toBe(1);
-    expect(bondOrderBetween(graph, findAtomById(graph, "3")!.parentId!, "3")).toBe(1);
-    for (const atom of graph.atoms) expect(usedValency(atom)).toBeLessThanOrEqual(4);
+    expect(findAtomById(graph, "2")).toBeUndefined(); // pruned to make room
+    expect(findAtomById(graph, "3")).toBeUndefined();
   });
 
   it("is a no-op, leaving the graph unchanged, through a non-carbon atom", () => {
@@ -584,199 +601,6 @@ describe("replaceAtomWithRing", () => {
     expect(result).toBe(graph);
     expect(findAtomById(result, "1")!.element).toBe("C");
     expect(hasRing(result)).toBe(false);
-  });
-
-  it("preserves all three C-O bonds of methanetriol's carbon when replaced with cyclopropane", () => {
-    // The root carbon stands in for methanetriol's central atom: three C-O
-    // bonds and an implicit fourth hydrogen, no parent edge to protect.
-    let graph = createSeedGraph();
-    graph = addAtomFromStub(graph, graph.rootId, "O", 1); // "1"
-    graph = addAtomFromStub(graph, graph.rootId, "O", 1); // "2"
-    graph = addAtomFromStub(graph, graph.rootId, "O", 1); // "3"
-
-    graph = replaceAtomWithRing(graph, graph.rootId, 3, false);
-
-    const ring = findRing(graph)!;
-    expect(ring).toHaveLength(3);
-    for (const oxygenId of ["1", "2", "3"]) {
-      const oxygen = findAtomById(graph, oxygenId)!;
-      expect(oxygen.parentId).toBeDefined();
-      expect(ring).toContain(oxygen.parentId);
-      expect(bondOrderBetween(graph, oxygen.parentId!, oxygenId)).toBe(1);
-    }
-    for (const atom of graph.atoms) expect(usedValency(atom)).toBeLessThanOrEqual(4);
-  });
-
-  it("re-homes a double-bonded neighbour onto a ring atom that still has 2 free slots", () => {
-    let graph = createSeedGraph();
-    graph = addAtomFromStub(graph, graph.rootId, "C", 2); // anchor = "1", double-bonded to the root
-    graph = addAtomFromStub(graph, "1", "O", 2); // "2" -- double-bonded child, must land on a 2-slot host
-    // "1" is now fully saturated (parent double bond + child double bond = 4), so a plain ring
-    // (needing 2 open slots) forces the child off the anchor entirely.
-
-    graph = replaceAtomWithRing(graph, "1", 4, false);
-
-    const oxygen = findAtomById(graph, "2")!;
-    expect(oxygen.parentId).not.toBe("1"); // couldn't stay -- "1" has no room once its own parent bond is honored
-    expect(bondOrderBetween(graph, oxygen.parentId!, "2")).toBe(2);
-    expect(openSlotCount(findAtomById(graph, oxygen.parentId!)!)).toBeGreaterThanOrEqual(0);
-    for (const atom of graph.atoms) expect(usedValency(atom)).toBeLessThanOrEqual(4);
-  });
-
-  it("drops a double-bonded neighbour when every ring atom (an aromatic ring's uniform 1-slot vertices) is too cramped to host it", () => {
-    let graph = createSeedGraph();
-    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // "1" -- single-bonded parent, so the aromatic ring still fits
-    graph = addAtomFromStub(graph, "1", "O", 2); // "2" -- needs a 2-slot host
-
-    graph = replaceAtomWithRing(graph, "1", 6, true); // aromatic: every ring vertex ends up with only 1 free slot
-
-    expect(findAtomById(graph, "2")).toBeUndefined(); // nowhere with 2 free slots -- dropped
-    for (const atom of graph.atoms) expect(usedValency(atom)).toBeLessThanOrEqual(4);
-  });
-
-  it("preserves the maximum number of same-order branches the ring can host, dropping the cheapest (smallest) one", () => {
-    // "1" is built with 5 single-bonded branches directly attached -- more
-    // than its nominal valency allows, the same "just wire up the bonds"
-    // trick setBondOrder's nitro test uses, deliberately over capacity so a
-    // real choice has to be made about what survives.
-    let graph = createSeedGraph();
-    graph = addAtomFromStub(graph, graph.rootId, "C", 2); // anchor = "1", double parent bond -- "1" itself ends up with no room of its own
-
-    const branchSizes = [1, 2, 3, 4, 5]; // cost of each branch, smallest first
-    const branchIds: string[][] = [];
-    for (const size of branchSizes) {
-      const chain: string[] = [];
-      let parent = "1";
-      for (let i = 0; i < size; i++) {
-        const newId = String(graph.nextId);
-        graph = addAtomFromStub(graph, parent, "C", 1);
-        chain.push(newId);
-        parent = newId;
-      }
-      branchIds.push(chain);
-    }
-
-    // Smallest ring (3) keeps the total room the new atoms + the (room-less)
-    // anchor can offer as small as possible, so demand (5 branches) outstrips it.
-    graph = replaceAtomWithRing(graph, "1", 3, false);
-
-    const survivingRoots = branchIds.filter((chain) => findAtomById(graph, chain[0]) !== undefined);
-    const droppedRoots = branchIds.filter((chain) => findAtomById(graph, chain[0]) === undefined);
-
-    expect(droppedRoots).toHaveLength(1);
-    expect(droppedRoots[0]).toEqual(branchIds[0]); // the size-1 branch -- cheapest to lose
-    expect(survivingRoots).toHaveLength(4);
-    // Every surviving branch's whole subtree came along, not just its root atom.
-    for (const chain of survivingRoots) {
-      for (const id of chain) expect(findAtomById(graph, id)).toBeDefined();
-    }
-    for (const atom of graph.atoms) expect(usedValency(atom)).toBeLessThanOrEqual(4);
-  });
-
-  it("keeps a benzene replacement's preserved count and valency correct when demand exceeds the ring's fixed capacity", () => {
-    let graph = createSeedGraph(); // anchor is the root -- no parent edge to worry about
-    const leaves = ["1", "2", "3", "4", "5", "6", "7"];
-    for (const _ of leaves) graph = addAtomFromStub(graph, graph.rootId, "C", 1); // 7 single-bonded leaves, over the root's nominal valency
-
-    graph = replaceAtomWithRing(graph, graph.rootId, 6, true);
-
-    const ring = findRing(graph)!;
-    expect(ring).toHaveLength(6);
-    expect(isAromaticRing(graph, ring)).toBe(true); // Kekule alternation intact
-
-    const surviving = leaves.filter((id) => findAtomById(graph, id) !== undefined);
-    expect(surviving).toHaveLength(6); // capacity for exactly 6 of the 7 leaves
-    for (const atom of graph.atoms) expect(usedValency(atom)).toBeLessThanOrEqual(4);
-  });
-
-  it("gives every re-parented neighbour a coherent parentId/slotFromParent, and lays out every surviving atom", () => {
-    let graph = createSeedGraph();
-    graph = addAtomFromStub(graph, graph.rootId, "O", 1); // "1"
-    graph = addAtomFromStub(graph, graph.rootId, "O", 1); // "2"
-    graph = addAtomFromStub(graph, graph.rootId, "O", 1); // "3"
-
-    graph = replaceAtomWithRing(graph, graph.rootId, 3, false);
-
-    for (const oxygenId of ["1", "2", "3"]) {
-      const oxygen = findAtomById(graph, oxygenId)!;
-      const host = findAtomById(graph, oxygen.parentId!)!;
-      // No sibling under the same host shares its slot.
-      const siblingSlots = graph.atoms
-        .filter((a) => a.parentId === host.id && a.id !== oxygenId)
-        .map((a) => a.slotFromParent);
-      expect(siblingSlots).not.toContain(oxygen.slotFromParent);
-    }
-
-    const positions = layoutFromRoot(graph, displayed);
-    for (const atom of graph.atoms) expect(positions.has(atom.id)).toBe(true);
-  });
-});
-
-describe("reattachDisplacedNeighbours", () => {
-  it("places a displaced neighbour onto the first host that has room, bonding it symmetrically", () => {
-    const graph: MoleculeGraph = {
-      rootId: "0",
-      nextId: 4,
-      atoms: [
-        { id: "0", element: "C", bonds: [{ to: "1", order: 1 }, { to: "2", order: 1 }] },
-        { id: "1", element: "C", bonds: [{ to: "0", order: 1 }], parentId: "0", slotFromParent: 1 },
-        { id: "2", element: "C", bonds: [{ to: "0", order: 1 }], parentId: "0", slotFromParent: 2 },
-        { id: "3", element: "O", bonds: [] }, // already detached from wherever it used to live
-      ],
-    };
-
-    const result = reattachDisplacedNeighbours(graph, [{ atomId: "3", order: 1 }], ["1", "2"]);
-
-    expect(findAtomById(result, "3")!.parentId).toBe("1");
-    expect(findAtomById(result, "3")!.slotFromParent).toBe(1);
-    expect(bondOrderBetween(result, "1", "3")).toBe(1);
-    expect(bondOrderBetween(result, "3", "1")).toBe(1);
-  });
-
-  it("brings a displaced neighbour's whole subtree along when it's re-homed", () => {
-    const graph: MoleculeGraph = {
-      rootId: "0",
-      nextId: 4,
-      atoms: [
-        { id: "0", element: "C", bonds: [{ to: "1", order: 1 }] },
-        { id: "1", element: "C", bonds: [{ to: "0", order: 1 }], parentId: "0", slotFromParent: 1 },
-        { id: "2", element: "C", bonds: [{ to: "3", order: 1 }] }, // detached neighbour, still carrying its own child
-        { id: "3", element: "O", bonds: [{ to: "2", order: 1 }], parentId: "2", slotFromParent: 1 },
-      ],
-    };
-
-    const result = reattachDisplacedNeighbours(graph, [{ atomId: "2", order: 1 }], ["1"]);
-
-    expect(findAtomById(result, "2")!.parentId).toBe("1");
-    expect(findAtomById(result, "3")).toBeDefined(); // "2"'s own child survives untouched
-    expect(findAtomById(result, "3")!.parentId).toBe("2");
-  });
-
-  it("drops a displaced neighbour (and its subtree) when no host has room", () => {
-    const graph: MoleculeGraph = {
-      rootId: "0",
-      nextId: 4,
-      atoms: [
-        { id: "0", element: "C", bonds: [{ to: "1", order: 1 }] },
-        {
-          id: "1",
-          element: "C",
-          bonds: [
-            { to: "0", order: 1 },
-            { to: "x", order: 1 },
-            { to: "y", order: 1 },
-            { to: "z", order: 1 },
-          ],
-          parentId: "0",
-          slotFromParent: 1,
-        },
-        { id: "2", element: "O", bonds: [] },
-      ],
-    };
-
-    const result = reattachDisplacedNeighbours(graph, [{ atomId: "2", order: 1 }], ["1"]);
-
-    expect(findAtomById(result, "2")).toBeUndefined();
   });
 });
 
