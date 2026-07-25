@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { closeRingBond } from "../graph/mutations";
-import { findAtomById, findRing } from "../graph/queries";
+import { bondOrderBetween, findAtomById, findRing, usedValency } from "../graph/queries";
+import { PERIODIC_TABLE } from "../graph/types";
 import { createInitialState, editorReducer } from "./editorReducer";
 
 describe("editorReducer", () => {
@@ -31,6 +32,21 @@ describe("editorReducer", () => {
     state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "N" });
 
     expect(state.graph).toBe(before);
+  });
+
+  it("clamps a triple bond armed against a nearly-full atom down to a single bond instead of going hypervalent", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "2", slot 1 off "1"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "3", slot 2 off "1" -- "1" down to 1 open slot
+    state = editorReducer(state, { type: "SET_TOOL_BOND_ORDER", bondOrder: 3 });
+
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "4"
+
+    expect(bondOrderBetween(state.graph, "1", "4")).toBe(1);
+    for (const atom of state.graph.atoms) {
+      expect(usedValency(atom)).toBeLessThanOrEqual(PERIODIC_TABLE[atom.element].valency);
+    }
   });
 });
 
@@ -120,6 +136,50 @@ describe("GROW_ATOM with a pending ring armed", () => {
     state = editorReducer(state, { type: "UNDO" });
 
     expect(state.graph.atoms).toHaveLength(1);
+  });
+
+  it("links a plain ring's anchor with the armed double bond, since 2 of its 4 slots are enough left over for the ring", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SET_TOOL_BOND_ORDER", bondOrder: 2 });
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+
+    expect(state.graph.atoms).toHaveLength(7); // ring geometry/size unchanged
+    const ring = findRing(state.graph)!;
+    expect(ring).toHaveLength(6);
+    const seed = findAtomById(state.graph, state.graph.rootId)!;
+    expect(seed.bonds).toHaveLength(1);
+    expect(seed.bonds[0].order).toBe(2);
+  });
+
+  it("falls back to a single bond linking benzene, whose anchor needs all 3 of its remaining slots for the ring itself", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SET_TOOL_BOND_ORDER", bondOrder: 2 });
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: true });
+
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId });
+
+    expect(state.graph.atoms).toHaveLength(7);
+    const ring = findRing(state.graph)!;
+    expect(ring).toHaveLength(6);
+    const seed = findAtomById(state.graph, state.graph.rootId)!;
+    expect(seed.bonds[0].order).toBe(1);
+  });
+
+  it("also clamps the ring's link bond to the clicked stub's own open-slot limit", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: state.graph.rootId }); // "1"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "2"
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" }); // "3" -- "1" down to 1 open slot
+    state = editorReducer(state, { type: "SET_TOOL_BOND_ORDER", bondOrder: 2 });
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+
+    state = editorReducer(state, { type: "GROW_ATOM", atomId: "1" });
+
+    const atomOne = findAtomById(state.graph, "1")!;
+    expect(atomOne.bonds).toHaveLength(4); // its one remaining slot, now used by the ring link
+    expect(atomOne.bonds.find((b) => !["0", "2", "3"].includes(b.to))!.order).toBe(1);
   });
 });
 

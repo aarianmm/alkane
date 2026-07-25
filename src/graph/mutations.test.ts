@@ -486,6 +486,30 @@ describe("pruneToFitValency", () => {
     expect(graph.atoms.map((a) => a.id).sort()).toEqual([graph.rootId, "1"]);
     expect(usedValency(findAtomById(graph, "1")!)).toBe(1);
   });
+
+  it("cuts one double bond rather than a cheaper single bond plus that same double bond", () => {
+    // "1" has two branches: a single-bonded leaf ("2", cost 1 atom) and a
+    // double-bonded branch with two children of its own ("3", cost 3 atoms).
+    // Freeing 2 valency needs only "3" cut (its order-2 bond alone closes the
+    // gap) -- cutting the cheaper leaf "2" first, as a step-at-a-time
+    // cheapest-first greedy would, doesn't free enough room on its own and
+    // still forces "3" to go too, losing both branches instead of just one.
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, graph.rootId, "C", 1); // anchor = "1"
+    graph = addAtomFromStub(graph, "1", "O", 1); // "2" -- single-bonded leaf
+    graph = addAtomFromStub(graph, "1", "C", 2); // "3" -- double-bonded
+    graph = addAtomFromStub(graph, "3", "C", 1); // "4" -- "3"'s child
+    graph = addAtomFromStub(graph, "3", "C", 1); // "5" -- "3"'s other child
+    expect(usedValency(findAtomById(graph, "1")!)).toBe(4); // parent(1) + leaf(1) + double(2)
+
+    graph = pruneToFitValency(graph, "1", 2); // need to shed 2
+
+    expect(findAtomById(graph, "2")).toBeDefined(); // the cheap leaf survives
+    expect(findAtomById(graph, "3")).toBeUndefined(); // the double bond -- and its subtree -- is cut instead
+    expect(findAtomById(graph, "4")).toBeUndefined();
+    expect(findAtomById(graph, "5")).toBeUndefined();
+    expect(usedValency(findAtomById(graph, "1")!)).toBe(2);
+  });
 });
 
 describe("retypeAtomWithPrune", () => {

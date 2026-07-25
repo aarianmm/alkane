@@ -238,6 +238,30 @@ export function deleteBond(graph: MoleculeGraph, atomIdA: string, atomIdB: strin
 }
 
 /**
+ * Removes every bond from `atomId` to one of `toIds` in one shot (both
+ * directions), then prunes whatever that disconnects from root — the
+ * multi-edge generalization of `deleteBond`'s reachability check. Cutting a
+ * subset of edges all at once, and only then checking what's still
+ * reachable, is what makes this safe for a ring atom's two ring bonds:
+ * severing either one alone just reopens the ring (nothing lost), but
+ * severing *both* is what actually strands the rest of the ring, and that
+ * interaction only shows up when the whole subset is removed together —
+ * summing each edge's cost as if cut in isolation would miss it entirely.
+ */
+function removeBondsAndPrune(graph: MoleculeGraph, atomId: string, toIds: string[]): MoleculeGraph {
+  const cut = new Set(toIds);
+  const edgeRemoved = graph.atoms.map((a) => {
+    if (a.id === atomId) return { ...a, bonds: a.bonds.filter((b) => !cut.has(b.to)) };
+    if (cut.has(a.id)) return { ...a, bonds: a.bonds.filter((b) => b.to !== atomId) };
+    return a;
+  });
+
+  const reachable = reachableFrom(edgeRemoved, graph.rootId);
+  if (reachable.size === edgeRemoved.length) return { ...graph, atoms: edgeRemoved };
+  return { ...graph, atoms: edgeRemoved.filter((a) => reachable.has(a.id)) };
+}
+
+/**
  * Trims the lowest-priority bonds off `atomId` until its used valency fits
  * within `targetValency` — the shared "make this atom legal again after its
  * element/valency shrank" primitive, reused by both the element-replace and
@@ -245,21 +269,22 @@ export function deleteBond(graph: MoleculeGraph, atomIdA: string, atomIdB: strin
  * root) is never touched, so the atom always keeps its path to root; every
  * other bond is a candidate.
  *
- * Each cut is applied with `deleteBond`, so it inherits that function's
- * ring-aware behavior for free: cutting a ring bond just reopens the ring
- * (nothing is disconnected, since the rest of the ring is still reachable the
- * other way around), while cutting a plain tree bond prunes that whole
- * branch, exactly like `deleteAtomSubtree`. Candidates are therefore ranked
- * by how many atoms a cut would actually cost (cheapest first, so ring bonds
- * and small leaf branches go before anything substantial), tie-broken by
- * preferring the highest slot ordinal — the least-primary, most branch-like
- * attachment — so the main chain continuation (slot 1) survives longest.
+ * Candidates are trimmed as a single chosen *subset*, not one cheapest bond
+ * at a time: a step-at-a-time greedy can be fooled into spending a cheap bond
+ * first only to discover it still has to cut an expensive one anyway, when
+ * cutting just the expensive one (whose order alone covers the whole
+ * shortfall) would have kept more atoms around outright. Since candidates
+ * top out at a handful (valency never exceeds 4), every subset is simply
+ * tried: among those whose combined order closes the gap to `targetValency`,
+ * the one costing the fewest atoms wins (via `removeBondsAndPrune`, so ring
+ * bonds are costed correctly, interactions included); ties prefer cutting
+ * fewer bonds, then the higher slot ordinals — the least-primary, most
+ * branch-like attachments — so the main chain continuation (slot 1) survives
+ * longest, then the lowest neighbor ids for determinism. If every candidate
+ * together still doesn't close the gap, all of them are cut — the same
+ * "stops there" exhaustion the old step-at-a-time version had.
  *
- * A no-op (valency already fits) returns `graph` itself unchanged. If the
- * atom runs out of trimmable bonds before reaching the target (only the
- * parent edge is left, and its own order still overshoots), pruning stops
- * there — this never touches the parent bond's order, which is outside this
- * helper's scope.
+ * A no-op (valency already fits) returns `graph` itself unchanged.
  *
  * `protectedNeighborId`, when given, is excluded from the candidates exactly
  * like the parent edge — for `setBondOrderWithPrune`, which needs to free
@@ -272,40 +297,42 @@ export function pruneToFitValency(
   targetValency: number,
   protectedNeighborId?: string,
 ): MoleculeGraph {
-  let current = graph;
+  const atom = getAtom(graph, atomId);
+  const deficit = usedValency(atom) - targetValency;
+  if (deficit <= 0) return graph;
 
-  while (usedValency(getAtom(current, atomId)) > targetValency) {
-    const atom = getAtom(current, atomId);
-    const candidates = atom.bonds.filter(
-      (bond) => bond.to !== atom.parentId && bond.to !== protectedNeighborId,
-    );
-    if (candidates.length === 0) break;
+  const candidates = atom.bonds.filter(
+    (bond) => bond.to !== atom.parentId && bond.to !== protectedNeighborId,
+  );
+  if (candidates.length === 0) return graph;
 
-    let bestTo: string | null = null;
-    let bestCost = Infinity;
-    let bestSlot = -Infinity;
-    for (const bond of candidates) {
-      const without = deleteBond(current, atomId, bond.to);
-      const cost = current.atoms.length - without.atoms.length;
-      const neighbor = getAtom(current, bond.to);
-      const slot = neighbor.parentId === atomId ? (neighbor.slotFromParent ?? 0) : Infinity;
+  const slotOf = (to: string): number => {
+    const neighbor = getAtom(graph, to);
+    return neighbor.parentId === atomId ? (neighbor.slotFromParent ?? 0) : Infinity;
+  };
 
-      const better =
-        bestTo === null ||
-        cost < bestCost ||
-        (cost === bestCost && slot > bestSlot) ||
-        (cost === bestCost && slot === bestSlot && Number(bond.to) > Number(bestTo));
-      if (better) {
-        bestTo = bond.to;
-        bestCost = cost;
-        bestSlot = slot;
-      }
-    }
+  type Choice = { toIds: string[]; cost: number };
+  let best: Choice | null = null;
+  const fullSet = candidates.map((b) => b.to);
 
-    current = deleteBond(current, atomId, bestTo!);
+  for (let mask = 1; mask < 1 << candidates.length; mask++) {
+    const subset = candidates.filter((_, i) => mask & (1 << i));
+    if (subset.reduce((sum, b) => sum + b.order, 0) < deficit) continue; // doesn't close the gap
+
+    const toIds = subset.map((b) => b.to);
+    const cost = graph.atoms.length - removeBondsAndPrune(graph, atomId, toIds).atoms.length;
+
+    const better =
+      best === null ||
+      cost < best.cost ||
+      (cost === best.cost && toIds.length < best.toIds.length) ||
+      (cost === best.cost &&
+        toIds.length === best.toIds.length &&
+        Math.min(...toIds.map(slotOf)) > Math.min(...best.toIds.map(slotOf)));
+    if (better) best = { toIds, cost };
   }
 
-  return current;
+  return removeBondsAndPrune(graph, atomId, best?.toIds ?? fullSet);
 }
 
 /**

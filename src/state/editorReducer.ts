@@ -13,7 +13,14 @@ import {
   replaceAtomWithFunctionalGroup,
   type FunctionalGroupId,
 } from "../graph/functionalGroups";
-import { bondOrderBetween, canInsertRing, findAtomById, usedValency } from "../graph/queries";
+import {
+  bondOrderBetween,
+  canInsertRing,
+  clampStubBondOrder,
+  findAtomById,
+  openSlotCount,
+  usedValency,
+} from "../graph/queries";
 import { DEFAULT_STYLE, type StyleId } from "../styles";
 
 export type Selection =
@@ -100,23 +107,39 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       // stays a substituent), not methane's carbon turning into the ring.
       if (state.selection?.kind === "pendingRing") {
         const { size, aromatic } = state.selection;
-        const withAnchor = addAtomFromStub(state.graph, action.atomId, "C", 1);
+        // The anchor is a fresh carbon, so its own valency (4) leaves only
+        // 4 minus whatever the ring itself must reserve (3 for aromatic, 2
+        // otherwise) free for the link back to the clicked stub -- on top of
+        // whatever the clicked atom's open slots already cap it at.
+        const parent = findAtomById(state.graph, action.atomId);
+        const anchorLinkMaxOrder = PERIODIC_TABLE.C.valency - (aromatic ? 3 : 2);
+        const linkOrder = parent
+          ? clampStubBondOrder(state.tool.bondOrder, openSlotCount(parent), anchorLinkMaxOrder)
+          : state.tool.bondOrder;
+        const withAnchor = addAtomFromStub(state.graph, action.atomId, "C", linkOrder);
         const anchorId = String(state.graph.nextId);
         if (!canInsertRing(withAnchor, anchorId, aromatic)) return state; // e.g. a ring already exists; stays armed
         return withMutation(state, addRing(withAnchor, anchorId, size, aromatic), { selection: null });
       }
       // A pending group grows directly off the clicked stub (its attachment
       // atom takes the open slot itself, unlike a ring's fresh-anchor
-      // indirection) -- see addFunctionalGroupFromStub.
+      // indirection) -- see addFunctionalGroupFromStub. It always links with
+      // a single bond, so the clamp below doesn't apply to it.
       if (state.selection?.kind === "pendingGroup") {
         const next = addFunctionalGroupFromStub(state.graph, action.atomId, state.selection.groupId);
         if (next === state.graph) return state; // no open slot left on the stub's parent; stays armed
         return withMutation(state, next, { selection: null });
       }
-      return withMutation(
-        state,
-        addAtomFromStub(state.graph, action.atomId, state.tool.element, state.tool.bondOrder),
-      );
+
+      // Clamp so the armed order can never make either end of the new bond
+      // hypervalent -- growing with a triple bond armed against an atom with
+      // only one open slot silently gives a single bond instead, rather than
+      // an illegal atom.
+      const parent = findAtomById(state.graph, action.atomId);
+      const order = parent
+        ? clampStubBondOrder(state.tool.bondOrder, openSlotCount(parent), PERIODIC_TABLE[state.tool.element].valency)
+        : state.tool.bondOrder;
+      return withMutation(state, addAtomFromStub(state.graph, action.atomId, state.tool.element, order));
     }
 
     // Clicking an existing atom applies whatever's currently armed on the
