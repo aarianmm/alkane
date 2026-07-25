@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createSeedGraph, PERIODIC_TABLE } from "./types";
-import { addAtomFromStub } from "./mutations";
-import { findAtomById, openSlotCount, usedValency } from "./queries";
+import { addAtomFromStub, addRing } from "./mutations";
+import { bondOrderBetween, findAtomById, findRing, openSlotCount, usedValency } from "./queries";
 import {
   addFunctionalGroupFromStub,
   canReplaceWithGroup,
@@ -396,5 +396,68 @@ describe("replaceAtomWithFunctionalGroup", () => {
         expect(usedValency(atom)).toBeLessThanOrEqual(PERIODIC_TABLE[atom.element].valency);
       }
     }
+  });
+});
+
+describe("Rule A -- a replace must not break the ring", () => {
+  it("lets carbonyl land on a plain ring carbon, keeping all six ring carbons intact", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, "0", "C", 1); // "1", anchor
+    graph = addRing(graph, "1", 6, false); // ring carbons "1".."6"
+
+    expect(canReplaceWithGroup(graph, "3", "carbonyl")).toBe(true);
+    const replaced = replaceAtomWithFunctionalGroup(graph, "3", "carbonyl");
+
+    const ring = findRing(replaced)!;
+    expect(ring).toHaveLength(6);
+    expect(ring).toContain("3");
+    const carbon = findAtomById(replaced, "3")!;
+    expect(carbon.element).toBe("C");
+    expect(carbon.bonds.some((b) => b.order === 2)).toBe(true); // the new =O
+    expect(bondOrderBetween(replaced, "3", "2")).toBe(1);
+    expect(bondOrderBetween(replaced, "3", "4")).toBe(1);
+  });
+
+  it("declines carboxylic acid on a ring carbon -- its own =O/-OH leave no room for both ring bonds", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, "0", "C", 1); // "1", anchor
+    graph = addRing(graph, "1", 6, false);
+
+    expect(canReplaceWithGroup(graph, "3", "carboxylicAcid")).toBe(false);
+    expect(replaceAtomWithFunctionalGroup(graph, "3", "carboxylicAcid")).toBe(graph);
+  });
+
+  it("declines carbonyl on a benzene carbon -- the aromatic single+double ring bonds already sum to 3", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, "0", "C", 1); // "1", anchor
+    graph = addRing(graph, "1", 6, true); // aromatic
+
+    expect(canReplaceWithGroup(graph, "3", "carbonyl")).toBe(false);
+    expect(replaceAtomWithFunctionalGroup(graph, "3", "carbonyl")).toBe(graph);
+  });
+
+  it("prunes a substituent on a ring carbon before touching either ring bond", () => {
+    let graph = createSeedGraph();
+    graph = addAtomFromStub(graph, "0", "C", 1); // "1", anchor
+    graph = addRing(graph, "1", 6, false);
+    graph = addAtomFromStub(graph, "3", "C", 1); // "7", a methyl substituent on ring carbon "3"
+
+    const replaced = replaceAtomWithFunctionalGroup(graph, "3", "carbonyl");
+
+    const ring = findRing(replaced)!;
+    expect(ring).toHaveLength(6);
+    expect(ring).toContain("3");
+    expect(findAtomById(replaced, "7")).toBeUndefined(); // methyl pruned, not a ring bond
+    expect(bondOrderBetween(replaced, "3", "2")).toBe(1);
+    expect(bondOrderBetween(replaced, "3", "4")).toBe(1);
+  });
+});
+
+describe("Rule B -- a replace must not make the molecule inorganic", () => {
+  it("declines nitro onto a lone carbon, which would leave the molecule with no carbon at all", () => {
+    const graph = createSeedGraph(); // just "0"
+
+    expect(canReplaceWithGroup(graph, "0", "nitro")).toBe(false);
+    expect(replaceAtomWithFunctionalGroup(graph, "0", "nitro")).toBe(graph);
   });
 });
