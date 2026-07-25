@@ -1,5 +1,7 @@
 import type { BondOrder, Element } from "../graph/types";
 import type { StyleId } from "../styles";
+import { ringMenuLabel } from "./ringMenuLabel";
+import { ToolbarMenu, ToolbarMenuItem } from "./ToolbarMenu";
 import styles from "./Toolbar.module.css";
 
 const ELEMENTS: Element[] = ["C", "O", "N", "S", "F", "Cl", "Br", "I"];
@@ -75,6 +77,39 @@ export function Toolbar({
             {element}
           </button>
         ))}
+        {/*
+          Rings are, like elements, something the user holds and then places
+          on a stub -- so the ring picker lives in this same group rather
+          than getting its own row. Collapsing it into a menu also reclaims
+          the horizontal space six ring-size buttons plus benzene used to take.
+        */}
+        <ToolbarMenu
+          label={ringMenuLabel(activeRing)}
+          disabled={!canSelectRing}
+          active={activeRing !== null}
+          ariaLabel="Ring"
+        >
+          {RING_SIZES.map((size) => {
+            const isActive = activeRing !== null && !activeRing.aromatic && activeRing.size === size;
+            return (
+              <ToolbarMenuItem
+                key={size}
+                active={isActive}
+                onSelect={() => onSelectRing(size, false)}
+                title={`Click a stub to grow a ${size}-membered ring there`}
+              >
+                {size}-membered
+              </ToolbarMenuItem>
+            );
+          })}
+          <ToolbarMenuItem
+            active={activeRing?.aromatic ?? false}
+            onSelect={() => onSelectRing(6, true)}
+            title="Click a stub to grow benzene there"
+          >
+            Benzene ⌬
+          </ToolbarMenuItem>
+        </ToolbarMenu>
       </div>
       <div className={styles.group} aria-label="Bond order">
         {BOND_ORDERS.map(({ order, label }) => (
@@ -88,34 +123,6 @@ export function Toolbar({
             {label}
           </button>
         ))}
-      </div>
-      <div className={styles.group} aria-label="Ring">
-        {RING_SIZES.map((size) => {
-          const isActive = activeRing !== null && !activeRing.aromatic && activeRing.size === size;
-          return (
-            <button
-              key={size}
-              type="button"
-              className={`${styles.button} ${isActive ? styles.buttonActive : ""}`}
-              aria-pressed={isActive}
-              disabled={!canSelectRing}
-              onClick={() => onSelectRing(size, false)}
-              title={`Click a stub to grow a ${size}-membered ring there`}
-            >
-              {size}
-            </button>
-          );
-        })}
-        <button
-          type="button"
-          className={`${styles.button} ${activeRing?.aromatic ? styles.buttonActive : ""}`}
-          aria-pressed={activeRing?.aromatic ?? false}
-          disabled={!canSelectRing}
-          onClick={() => onSelectRing(6, true)}
-          title="Click a stub to grow benzene there"
-        >
-          ⌬
-        </button>
       </div>
       {availableStyles.length > 1 && (
         <div className={styles.group} aria-label="Formula style">
