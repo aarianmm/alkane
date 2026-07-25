@@ -3,7 +3,7 @@ import { useMoleculeName } from "./api/useMoleculeName";
 import { MoleculeEditor } from "./editor/MoleculeEditor";
 import { NameDisplay } from "./editor/NameDisplay";
 import { Toolbar } from "./editor/Toolbar";
-import { hasRing } from "./graph/queries";
+import { hasRing, isMethane } from "./graph/queries";
 import { getStyle, STYLES } from "./styles";
 import type { StyleId } from "./styles";
 import { createInitialState, editorReducer } from "./state/editorReducer";
@@ -48,6 +48,7 @@ function App() {
   // Only the molecule-wide "one ring" gate applies upfront; a specific
   // stub's valency is checked at click time.
   const canSelectRing = !hasRing(state.graph);
+  const canSelectSkeletal = !isMethane(state.graph);
   const activeRing = selection?.kind === "pendingRing" ? { size: selection.size, aromatic: selection.aromatic } : null;
   const activeGroup = selection?.kind === "pendingGroup" ? selection.groupId : null;
 
@@ -70,6 +71,7 @@ function App() {
         activeStyle={state.style}
         availableStyles={availableStyles}
         onSelectStyle={(style) => dispatch({ type: "SET_STYLE", style })}
+        canSelectSkeletal={canSelectSkeletal}
         canSelectRing={canSelectRing}
         activeRing={activeRing}
         onSelectRing={(size, aromatic) => dispatch({ type: "SELECT_RING", size, aromatic })}

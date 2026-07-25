@@ -31,6 +31,8 @@ interface ToolbarProps {
   activeStyle: StyleId;
   availableStyles: StyleId[];
   onSelectStyle: (style: StyleId) => void;
+  /** Whether Skeletal can be picked right now -- it draws methane as nothing at all (bare carbon, no bonds), so it's disabled until there's more than one atom. */
+  canSelectSkeletal: boolean;
   /** Whether a ring can be armed at all right now (the molecule doesn't already have one) — a specific stub's own valency is checked when it's clicked. */
   canSelectRing: boolean;
   /** The currently-armed ring, waiting for a stub click, or null if none is armed. */
@@ -57,6 +59,7 @@ export function Toolbar({
   activeStyle,
   availableStyles,
   onSelectStyle,
+  canSelectSkeletal,
   canSelectRing,
   activeRing,
   onSelectRing,
@@ -151,17 +154,22 @@ export function Toolbar({
       </div>
       {availableStyles.length > 1 && (
         <div className={styles.group} aria-label="Formula style">
-          {availableStyles.map((id) => (
-            <button
-              key={id}
-              type="button"
-              className={`${styles.button} ${id === activeStyle ? styles.buttonActive : ""}`}
-              aria-pressed={id === activeStyle}
-              onClick={() => onSelectStyle(id)}
-            >
-              {STYLE_LABELS[id]}
-            </button>
-          ))}
+          {availableStyles.map((id) => {
+            const disabled = id === "skeletal" && !canSelectSkeletal;
+            return (
+              <button
+                key={id}
+                type="button"
+                className={`${styles.button} ${id === activeStyle ? styles.buttonActive : ""}`}
+                aria-pressed={id === activeStyle}
+                disabled={disabled}
+                onClick={() => onSelectStyle(id)}
+                title={disabled ? "Methane has no skeletal form -- it's just a bare carbon" : undefined}
+              >
+                {STYLE_LABELS[id]}
+              </button>
+            );
+          })}
         </div>
       )}
       <div className={styles.group} aria-label="History">
