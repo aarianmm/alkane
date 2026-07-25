@@ -62,7 +62,7 @@ function App() {
       }}
     >
       <Toolbar
-        activeElement={state.tool.element}
+        activeElement={activeRing ? null : state.tool.element}
         activeBondOrder={state.tool.bondOrder}
         onSelectElement={(element) => dispatch({ type: "SET_TOOL_ELEMENT", element })}
         onSelectBondOrder={(order) => dispatch({ type: "SET_TOOL_BOND_ORDER", bondOrder: order })}

@@ -51,6 +51,16 @@ describe("SELECT_RING", () => {
 
     expect(state.selection).toEqual({ kind: "pendingRing", size: 6, aromatic: true });
   });
+
+  it("arming an element un-arms a pending ring -- only one can be held at a time", () => {
+    let state = createInitialState();
+    state = editorReducer(state, { type: "SELECT_RING", size: 6, aromatic: false });
+
+    state = editorReducer(state, { type: "SET_TOOL_ELEMENT", element: "O" });
+
+    expect(state.selection).toBeNull();
+    expect(state.tool.element).toBe("O");
+  });
 });
 
 describe("GROW_ATOM with a pending ring armed", () => {

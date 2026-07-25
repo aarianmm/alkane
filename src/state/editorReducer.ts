@@ -133,8 +133,11 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case "SET_STYLE":
       return { ...state, style: action.style };
 
+    // Arming an element un-arms any pending ring -- an atom and a ring are
+    // both things the user "holds" for the next stub/atom click, and only
+    // one can be held at a time.
     case "SET_TOOL_ELEMENT":
-      return { ...state, tool: { ...state.tool, element: action.element } };
+      return { ...state, tool: { ...state.tool, element: action.element }, selection: null };
 
     case "SET_TOOL_BOND_ORDER":
       return { ...state, tool: { ...state.tool, bondOrder: action.bondOrder } };
