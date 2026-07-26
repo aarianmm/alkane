@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Functional Group Priority in IUPAC Names: Suffix vs Prefix</title>
+    <meta
+      name="description"
+      content="The IUPAC priority table that decides which functional group becomes the suffix in a name, with worked examples for acids, alcohols, ketones and halogens."
+    />
+    <link rel="canonical" href="https://thealkane.com/guides/functional-group-priority/" />
+
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="The Alkane" />
+    <meta property="og:url" content="https://thealkane.com/guides/functional-group-priority/" />
+    <meta property="og:title" content="Functional Group Priority in IUPAC Names: Suffix vs Prefix" />
+    <meta
+      property="og:description"
+      content="The IUPAC priority table that decides which functional group becomes the suffix in a name, with worked examples for acids, alcohols, ketones and halogens."
+    />
+    <meta property="og:image" content="https://thealkane.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Functional Group Priority in IUPAC Names: Suffix vs Prefix" />
+    <meta
+      name="twitter:description"
+      content="The IUPAC priority table that decides which functional group becomes the suffix in a name, with worked examples for acids, alcohols, ketones and halogens."
+    />
+    <meta name="twitter:image" content="https://thealkane.com/og.png" />
+
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#2563eb" />
+
+    <link rel="stylesheet" href="/src/site.css" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "TechArticle",
+            "@id": "https://thealkane.com/guides/functional-group-priority/#article",
+            "headline": "Functional group priority in IUPAC names: suffix or prefix?",
+            "description": "The IUPAC priority table that decides which functional group becomes the suffix, with worked examples for acids, alcohols, ketones, halogens and benzene rings.",
+            "mainEntityOfPage": "https://thealkane.com/guides/functional-group-priority/",
+            "author": { "@type": "Organization", "name": "The Alkane", "url": "https://thealkane.com/" },
+            "publisher": { "@type": "Organization", "name": "The Alkane", "url": "https://thealkane.com/" },
+            "image": "https://thealkane.com/og.png",
+            "datePublished": "2026-07-26",
+            "inLanguage": "en"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://thealkane.com/guides/functional-group-priority/#breadcrumb",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://thealkane.com/" },
+              { "@type": "ListItem", "position": 2, "name": "Guides", "item": "https://thealkane.com/guides/" },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Functional group priority in IUPAC names",
+                "item": "https://thealkane.com/guides/functional-group-priority/"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://thealkane.com/guides/functional-group-priority/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What does functional group priority mean?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "It means that when a molecule has more than one functional group, only the single highest-priority group present becomes the name's suffix — every other group present is demoted to a prefix, no matter how it would be named on its own."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do you use the table to name a molecule?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Work through the table in four steps: find every functional group in the molecule, let the one that ranks highest in the table become the suffix, number the parent chain to give that suffix the lowest possible locant, then name everything else as an alphabetised prefix."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Why are halogens never a suffix?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Halogens are never a suffix because IUPAC nomenclature never gave them one — fluoro, chloro, bromo and iodo are always cited as substituent prefixes, at whatever locant they sit, no matter what else is in the molecule."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Where do the locants go?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "A locant sits immediately in front of the part of the name it describes, not at the very front of the whole word — so the correct form is pentan-2-ol, not 2-pentanol, and but-2-ene, not 2-butene."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What about benzene rings?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "On a benzene ring, a small set of retained names take over the whole parent instead of a prefix-plus-suffix construction: phenol for hydroxyl, benzoic acid for the carboxylic acid, benzaldehyde for the aldehyde, benzonitrile for the nitrile, benzamide for the amide, and benzoyl chloride for the acyl chloride."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="site-header__brand" href="/">
+        <img src="/logo.svg" alt="" width="28" height="28" />
+        The Alkane
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/">Namer</a>
+        <a href="/guides/" aria-current="page">Guides</a>
+        <a href="/about/">About</a>
+        <a href="https://api.thealkane.com/swagger">API</a>
+      </nav>
+    </header>
+
+    <main class="page prose">
+      <p class="breadcrumb"><a href="/">Home</a> › <a href="/guides/">Guides</a> › Functional group priority</p>
+
+      <h1>Functional group priority in IUPAC names: suffix or prefix?</h1>
+
+      <p class="lede">
+        A molecule can carry several functional groups at once, but only one of them gets to be the suffix. This
+        guide sets out the priority order that decides which group wins, how the rest turn into prefixes, and two
+        full worked examples — check the same chemistry live in <a href="/">the namer</a>.
+      </p>
+
+      <h2>What does functional group priority mean?</h2>
+      <p>
+        It means that when a molecule has more than one functional group, only the single highest-priority group
+        present becomes the name's suffix — every other group present is demoted to a prefix, no matter how it
+        would be named on its own.
+      </p>
+      <p>
+        A molecule with both an <code>-OH</code> and a <code>-COOH</code>, for instance, is never named as an
+        "-ol" acid: the carboxylic acid outranks the alcohol, so the acid becomes the suffix and the hydroxyl
+        becomes a <code>hydroxy-</code> prefix instead.
+      </p>
+
+      <h2>What is the IUPAC priority order?</h2>
+      <p>
+        From highest to lowest, the groups this tool names rank as follows. A group higher up the table always
+        outranks every group below it, regardless of which one happens to appear first when you read the
+        structure.
+      </p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Group</th>
+              <th>Formula</th>
+              <th>Suffix when principal</th>
+              <th>Prefix when not</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Carboxylic acid</td>
+              <td><code>COOH</code></td>
+              <td>-oic acid</td>
+              <td>carboxy</td>
+            </tr>
+            <tr>
+              <td>Acyl chloride</td>
+              <td><code>COCl</code></td>
+              <td>-oyl chloride</td>
+              <td>chlorocarbonyl</td>
+            </tr>
+            <tr>
+              <td>Amide</td>
+              <td><code>CONH2</code></td>
+              <td>-amide</td>
+              <td>carbamoyl</td>
+            </tr>
+            <tr>
+              <td>Nitrile</td>
+              <td><code>C≡N</code></td>
+              <td>-nitrile</td>
+              <td>cyano</td>
+            </tr>
+            <tr>
+              <td>Aldehyde</td>
+              <td><code>CHO</code></td>
+              <td>-al</td>
+              <td>formyl</td>
+            </tr>
+            <tr>
+              <td>Ketone</td>
+              <td><code>C=O</code></td>
+              <td>-one</td>
+              <td>oxo</td>
+            </tr>
+            <tr>
+              <td>Alcohol</td>
+              <td><code>OH</code></td>
+              <td>-ol</td>
+              <td>hydroxy</td>
+            </tr>
+            <tr>
+              <td>Thiol</td>
+              <td><code>SH</code></td>
+              <td>-thiol</td>
+              <td>sulfanyl</td>
+            </tr>
+            <tr>
+              <td>Amine</td>
+              <td><code>NH2</code></td>
+              <td>-amine</td>
+              <td>amino</td>
+            </tr>
+            <tr>
+              <td>Imine</td>
+              <td><code>=NH</code></td>
+              <td>-imine</td>
+              <td>imino</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Carbon–carbon double and triple bonds are not on this table because they never compete for the suffix
+        position at all — they are folded straight into the parent chain's stem as the infix <code>-en-</code> or
+        <code>-yn-</code> (<code>pent-2-ene</code>, <code>hex-3-yne</code>). Halogens (<code>fluoro</code>,
+        <code>chloro</code>, <code>bromo</code>, <code>iodo</code>) and the nitro group are different again: they
+        have no suffix form at all in this scheme and are always cited as prefixes.
+      </p>
+
+      <h2>How do you use the table to name a molecule?</h2>
+      <p>
+        Work through the table in four steps: find every functional group in the molecule, let the one that ranks
+        highest in the table become the suffix, number the parent chain to give that suffix the lowest possible
+        locant, then name everything else as an alphabetised prefix.
+      </p>
+      <ol>
+        <li>Identify every functional group present in the structure.</li>
+        <li>Find which one sits highest in the priority table — that one becomes the suffix.</li>
+        <li>Number the chain so the suffix group gets the lowest locant available.</li>
+        <li>Name every other group as a prefix, in alphabetical order, ignoring multiplying prefixes.</li>
+      </ol>
+
+      <h2>Worked example: a molecule with an –OH and a –COOH</h2>
+      <p>
+        Take <code>CH3CH(OH)CH2COOH</code>. Both a hydroxyl and a carboxylic acid are present, and the acid
+        outranks the alcohol, so the acid is the suffix. The chain is four carbons, numbered from the acid carbon
+        as C1 so the suffix gets the lowest possible locant — that puts the hydroxyl on C3. The alcohol is demoted
+        to a <code>hydroxy-</code> prefix at that locant, giving <code>3-hydroxybutanoic acid</code>.
+      </p>
+
+      <h2>Worked example: a ketone with a chloro substituent</h2>
+      <p>
+        Take <code>CH3COCH2CHClCH3</code>. The ketone is the only group in the priority table present, so it is
+        automatically the suffix; the chlorine, having no suffix form at all, is always a prefix regardless.
+        Numbering the five-carbon chain to give the ketone the lowest locant puts <code>C=O</code> at C2 and the
+        chlorine at C4, giving <code>4-chloropentan-2-one</code>.
+      </p>
+
+      <a class="cta" href="/">
+        <strong>Draw it and check</strong>
+        <span>Build either structure in the namer and watch it settle on the same suffix.</span>
+      </a>
+
+      <h2>Why are halogens never a suffix?</h2>
+      <p>
+        Halogens are never a suffix because IUPAC nomenclature never gave them one — fluoro, chloro, bromo and
+        iodo are always cited as substituent prefixes, at whatever locant they sit, no matter what else is in the
+        molecule. The same is true of the nitro group. This is why a chlorine substituent never bumps a ketone, an
+        alcohol or any other group in the table out of the suffix position; it competes for locants, not for the
+        suffix itself.
+      </p>
+
+      <h2>Where do the locants go?</h2>
+      <p>
+        A locant sits immediately in front of the part of the name it describes, not at the very front of the
+        whole word — so the correct form is <code>pentan-2-ol</code>, not <code>2-pentanol</code>, and
+        <code>but-2-ene</code>, not <code>2-butene</code>. Older style put every locant at the start of the name;
+        current recommendations place each one directly before the syllable it modifies.
+      </p>
+
+      <h2>What about benzene rings?</h2>
+      <p>
+        On a benzene ring, a small set of retained names take over the whole parent instead of a
+        prefix-plus-suffix construction: <code>phenol</code> for hydroxyl, <code>benzoic acid</code> for the
+        carboxylic acid, <code>benzaldehyde</code> for the aldehyde, <code>benzonitrile</code> for the nitrile,
+        <code>benzamide</code> for the amide, and <code>benzoyl chloride</code> for the acyl chloride. Whichever of
+        these groups is present becomes the parent name and takes ring position 1; any other, lower-priority
+        substituent on the ring is then cited as a prefix at its own locant, exactly as on a chain. A
+        lower-priority group never displaces one of these retained parents.
+      </p>
+
+      <h2>Common mistakes</h2>
+      <ul>
+        <li>Naming an alcohol as the suffix when a carboxylic acid, amide or other higher-ranked group is also present.</li>
+        <li>Giving a halogen a suffix-like ending instead of citing it as a <code>chloro-</code> style prefix.</li>
+        <li>Putting the locant at the front of the whole name instead of directly before the part it modifies.</li>
+        <li>Numbering the chain for the lowest locant on a minor substituent instead of on the principal group.</li>
+        <li>Forgetting that a retained benzene parent (<code>phenol</code>, <code>benzoic acid</code>, and so on) takes over position 1 automatically.</li>
+      </ul>
+
+      <p>
+        Ready to combine this with chain selection? See
+        <a href="/guides/naming-branched-chains/">IUPAC rules for branched chains</a> for how the parent chain
+        itself is picked. If the basics are still new, start with
+        <a href="/guides/how-to-name-alkanes/">how to name alkanes</a> or
+        <a href="/guides/how-to-name-alkenes-and-alkynes/">naming alkenes and alkynes</a>. For more on how the
+        namer itself works, see the <a href="/about/">about page</a>.
+      </p>
+
+      <a class="cta" href="/">
+        <strong>Test the priority order yourself</strong>
+        <span>Add a second functional group in the namer and watch the suffix change live.</span>
+      </a>
+    </main>
+
+    <footer class="site-footer">
+      <div class="site-footer__inner">
+        <span>The Alkane — a free IUPAC name generator.</span>
+        <nav class="site-footer__links" aria-label="Footer">
+          <a href="/">Namer</a>
+          <a href="/guides/">Guides</a>
+          <a href="/about/">About</a>
+          <a href="https://api.thealkane.com/swagger">API docs</a>
+          <a href="https://github.com/aarianmm/Organic-Namer-Engine">Source</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

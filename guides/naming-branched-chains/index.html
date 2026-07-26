@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>IUPAC Rules for Branched Chains: Parent Chain and Numbering</title>
+    <meta
+      name="description"
+      content="How IUPAC picks the parent chain in a branched alkane, breaks numbering ties, names the substituents, and orders them correctly in the finished chain name."
+    />
+    <link rel="canonical" href="https://thealkane.com/guides/naming-branched-chains/" />
+
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="The Alkane" />
+    <meta property="og:url" content="https://thealkane.com/guides/naming-branched-chains/" />
+    <meta property="og:title" content="IUPAC Rules for Branched Chains: Parent Chain and Numbering" />
+    <meta
+      property="og:description"
+      content="How IUPAC picks the parent chain in a branched alkane, breaks numbering ties, names the substituents, and orders them correctly in the finished chain name."
+    />
+    <meta property="og:image" content="https://thealkane.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="IUPAC Rules for Branched Chains: Parent Chain and Numbering" />
+    <meta
+      name="twitter:description"
+      content="How IUPAC picks the parent chain in a branched alkane, breaks numbering ties, names the substituents, and orders them correctly in the finished chain name."
+    />
+    <meta name="twitter:image" content="https://thealkane.com/og.png" />
+
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#2563eb" />
+
+    <link rel="stylesheet" href="/src/site.css" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "TechArticle",
+            "@id": "https://thealkane.com/guides/naming-branched-chains/#article",
+            "headline": "IUPAC rules for branched chains: picking and numbering the parent",
+            "description": "How IUPAC picks the parent chain in a branched alkane, breaks numbering ties, names the substituents, and orders them correctly in the finished chain name.",
+            "mainEntityOfPage": "https://thealkane.com/guides/naming-branched-chains/",
+            "author": { "@type": "Organization", "name": "The Alkane", "url": "https://thealkane.com/" },
+            "publisher": { "@type": "Organization", "name": "The Alkane", "url": "https://thealkane.com/" },
+            "image": "https://thealkane.com/og.png",
+            "datePublished": "2026-07-26",
+            "inLanguage": "en"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://thealkane.com/guides/naming-branched-chains/#breadcrumb",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://thealkane.com/" },
+              { "@type": "ListItem", "position": 2, "name": "Guides", "item": "https://thealkane.com/guides/" },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "IUPAC rules for branched chains",
+                "item": "https://thealkane.com/guides/naming-branched-chains/"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://thealkane.com/guides/naming-branched-chains/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is the parent chain?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The parent chain is the longest continuous carbon chain that carries the molecule's principal characteristic group (if it has one), and the parent's root name — hexane, heptane and so on — becomes the base the rest of the name is built on."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do you choose the parent chain?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "You choose the parent chain by working down a fixed tie-break ladder — longest chain first, then the chain with the most of the principal characteristic group, then the one giving that group the lowest locants, then lowest locants for double or triple bonds, then lowest locants for substituent prefixes — applying each rule only when the one before it fails to decide."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Why is the longest chain not always the obvious one?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Because the longest chain does not have to run in a straight line across the page."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do you number the parent chain?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Number from whichever end gives the lower locants at the first point of difference between the two possible locant sets, compared term by term."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What happens when two names are equally valid?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "When two names are equally valid, this tool reports both rather than silently picking one."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="site-header__brand" href="/">
+        <img src="/logo.svg" alt="" width="28" height="28" />
+        The Alkane
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/">Namer</a>
+        <a href="/guides/" aria-current="page">Guides</a>
+        <a href="/about/">About</a>
+        <a href="https://api.thealkane.com/swagger">API</a>
+      </nav>
+    </header>
+
+    <main class="page prose">
+      <p class="breadcrumb"><a href="/">Home</a> › <a href="/guides/">Guides</a> › IUPAC rules for branched chains</p>
+
+      <h1>IUPAC rules for branched chains: picking and numbering the parent</h1>
+
+      <p class="lede">
+        Naming a branched alkane means answering two questions in order: which chain is the parent, and how is it
+        numbered? Get either wrong and the rest of the name follows the wrong logic. This guide works through both,
+        plus how substituents are named and ordered — check every step against
+        <a href="/">the free namer</a> as you go.
+      </p>
+
+      <h2>What is the parent chain?</h2>
+      <p>
+        The parent chain is the longest continuous carbon chain that carries the molecule's principal
+        characteristic group (if it has one), and the parent's root name — <code>hexane</code>,
+        <code>heptane</code> and so on — becomes the base the rest of the name is built on. Everything not part of
+        that chain is a substituent, cited as a prefix, or occasionally as the suffix if it is the principal group.
+      </p>
+      <p>
+        This tool names chains of one to ten carbons. A chain that runs longer, or a branch that itself carries a
+        branch, falls outside what it can name.
+      </p>
+
+      <h2>How do you choose the parent chain?</h2>
+      <p>
+        You choose the parent chain by working down a fixed tie-break ladder — longest chain first, then the chain
+        with the most of the principal characteristic group, then the one giving that group the lowest locants,
+        then lowest locants for double or triple bonds, then lowest locants for substituent prefixes — applying
+        each rule only when the one before it fails to decide. Written out in full:
+      </p>
+      <ol>
+        <li>Pick the longest chain.</li>
+        <li>Among chains of that length, pick the one with the most occurrences of the principal group.</li>
+        <li>Among those, pick the one giving the principal group the lowest locant.</li>
+        <li>Among those, pick the one giving double or triple bonds the lowest locants.</li>
+        <li>Among those, pick the one giving substituent prefixes the lowest locants overall.</li>
+        <li>If a tie survives even that, prefer the chain whose first-cited substituent is earliest alphabetically.</li>
+      </ol>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>Rule</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>Longest chain</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>Most occurrences of the principal group</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td>Lowest locants for the principal group</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td>Lowest locants for double/triple bonds</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td>Lowest locants for substituent prefixes</td>
+            </tr>
+            <tr>
+              <td>6</td>
+              <td>Alphabetically-first substituent cited first</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Why is the longest chain not always the obvious one?</h2>
+      <p>
+        Because the longest chain does not have to run in a straight line across the page. Take
+        <code>CH3CH2CH(CH2CH2CH2CH3)CH2CH3</code>. Drawn flat, it looks like a five-carbon pentane chain with a
+        four-carbon butyl group hanging off the middle carbon — which would suggest "3-butylpentane". But a
+        four-carbon substituent is longer than the two-carbon tail it sits beside, so the true longest chain bends
+        into that branch instead: three carbons on the left plus the four-carbon arm makes a seven-carbon heptane,
+        leaving only the original two-carbon tail as an ethyl substituent. The correct name is
+        <code>3-ethylheptane</code>.
+      </p>
+      <p>
+        The rule of thumb: a substituent can never be longer than the segment of "main chain" it was drawn hanging
+        off — if it is, the parent chain has not been found yet.
+      </p>
+
+      <h2>How do you number the parent chain?</h2>
+      <p>
+        Number from whichever end gives the lower locants at the first point of difference between the two
+        possible locant sets, compared term by term. Take 2,2,4-trimethylhexane: numbering from the left gives
+        substituents at {2, 2, 4}; numbering from the right gives {3, 5, 5}. Compare the two sets position by
+        position — 2 is lower than 3 at the very first comparison, so the left-hand numbering wins outright, and
+        the rest of the set is never even considered.
+      </p>
+
+      <h2>How do you name the substituents?</h2>
+      <p>
+        Simple carbon-chain substituents take the usual alkyl names — <code>methyl</code>, <code>ethyl</code>,
+        <code>propyl</code>, <code>butyl</code>, and so on — numbered from their own point of attachment. This tool
+        also names slightly more complex substituents on the same principle: their own attachment carbon is
+        locant 1, whatever branches or one functional group sit on that same short spine.
+      </p>
+      <ul>
+        <li><code>1-methylethyl</code> — a methyl branch on the carbon next to the attachment point</li>
+        <li><code>1,1-dimethylethyl</code> — two methyl branches on that same carbon</li>
+        <li><code>2-aminoethyl</code> — an amino group on the far carbon of a two-carbon substituent</li>
+      </ul>
+      <p>
+        Whenever a substituent's own name contains a locant, enclose the whole substituent in parentheses in the
+        full name, so the numbering cannot be misread as belonging to the parent chain instead.
+      </p>
+
+      <h2>In what order do the substituents go in the name?</h2>
+      <p>
+        Alphabetically, by the substituent name itself — ignoring the multiplying prefixes <code>di-</code>,
+        <code>tri-</code>, <code>tetra-</code> and so on. So <code>ethyl</code> is cited before
+        <code>dimethyl</code> because "e" comes before "m", regardless of how many methyls there are. Punctuation
+        follows fixed rules too: a comma separates two numerals (<code>2,2-dimethyl</code>), a hyphen separates a
+        numeral from a letter (<code>2-methyl</code>), and there is never a space within the name.
+      </p>
+
+      <h2>Worked example: 4-ethyl-2,2-dimethylhexane</h2>
+      <p>Take the structure <code>CH3C(CH3)2CH2CH(CH2CH3)CH2CH3</code>.</p>
+      <ol>
+        <li><strong>Find the longest chain.</strong> It runs six carbons, so the parent is hexane.</li>
+        <li><strong>List the substituents.</strong> Two methyl groups on one carbon, and one ethyl group on another.</li>
+        <li>
+          <strong>Number for the lowest locants.</strong> From the left: methyls at 2, ethyl at 4 → {2, 2, 4}. From
+          the right: methyls at 5, ethyl at 3 → {3, 5, 5}. The first set is lower at the first point of difference
+          (2 vs 3), so number from the left.
+        </li>
+        <li>
+          <strong>Alphabetise the substituents.</strong> "ethyl" comes before "methyl", so ethyl is cited first
+          regardless of the "di-" on methyl.
+        </li>
+        <li><strong>Assemble the name.</strong> <code>4-ethyl-2,2-dimethylhexane</code>.</li>
+      </ol>
+
+      <a class="cta" href="/">
+        <strong>Try it in the namer</strong>
+        <span>Draw this structure yourself and watch the name build up carbon by carbon.</span>
+      </a>
+
+      <h2>What happens when two names are equally valid?</h2>
+      <p>
+        When two names are equally valid, this tool reports both rather than silently picking one. That happens
+        when the rules above run out before a single chain wins — two candidate chains tie on length, on
+        principal-group count, and on every locant set. Classic IUPAC practice then falls back to an alphabetical
+        tiebreak on the substituent names, a rule that is easy to apply inconsistently by hand; rather than hide
+        that judgement call inside a single answer, the tool surfaces every equally valid name it finds.
+      </p>
+
+      <h2>Common mistakes</h2>
+      <ul>
+        <li>
+          Numbering from the end nearer the first substituent alphabetically, instead of the end giving the lowest
+          locants overall.
+        </li>
+        <li>
+          Counting <code>di-</code>, <code>tri-</code> and <code>tetra-</code> when alphabetising — they are
+          ignored, so "dimethyl" is sorted under "m", not "d".
+        </li>
+        <li>
+          Choosing a shorter chain because it "looks" like the main line drawn on the page, rather than checking
+          whether a branch is actually longer.
+        </li>
+        <li>Forgetting the parentheses around a substituent that itself contains a locant, such as <code>(2-aminoethyl)</code>.</li>
+        <li>
+          Writing a locant as if it belongs at the very front of the name — <code>2-methylhexane</code> is right;
+          the locant always sits next to the part of the name it modifies.
+        </li>
+      </ul>
+
+      <p>
+        For the functional groups that outrank plain alkyl branches when both are present, see
+        <a href="/guides/functional-group-priority/">functional group priority in IUPAC names</a>. If straight
+        chains are still new, start with <a href="/guides/how-to-name-alkanes/">how to name alkanes</a>; if it's
+        double and triple bonds you need, see
+        <a href="/guides/how-to-name-alkenes-and-alkynes/">naming alkenes and alkynes</a>. For more on how the
+        namer itself works, see the <a href="/about/">about page</a>.
+      </p>
+
+      <a class="cta" href="/">
+        <strong>Check your own structure</strong>
+        <span>The namer draws, numbers and names branched chains live — no sign-up required.</span>
+      </a>
+    </main>
+
+    <footer class="site-footer">
+      <div class="site-footer__inner">
+        <span>The Alkane — a free IUPAC name generator.</span>
+        <nav class="site-footer__links" aria-label="Footer">
+          <a href="/">Namer</a>
+          <a href="/guides/">Guides</a>
+          <a href="/about/">About</a>
+          <a href="https://api.thealkane.com/swagger">API docs</a>
+          <a href="https://github.com/aarianmm/Organic-Namer-Engine">Source</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>
