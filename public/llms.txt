@@ -48,6 +48,9 @@ A free public HTTP API exposes the same engine:
 - `GET https://api.thealkane.com/api/health` — health check.
 - Interactive documentation: <https://api.thealkane.com/swagger>
 
+The API is free and needs no key. A per-IP fair-use rate limit may apply and
+returns HTTP 429, so batch callers should back off rather than retry hard.
+
 ## Source
 
 - Naming engine: <https://github.com/aarianmm/Organic-Namer-Engine>

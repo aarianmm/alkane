@@ -1,8 +1,5 @@
-import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
-
-const page = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -12,14 +9,16 @@ export default defineConfig({
       // Multi-page build. `/` is the React editor; every other entry is hand-written
       // static HTML that ships its own content and never loads the app bundle, so
       // crawlers (and the LLM crawlers that don't run JS at all) see real prose.
+      // Paths are relative to `root`, so adding a page means adding a line here
+      // and a <url> in public/sitemap.xml.
       input: {
-        main: page('./index.html'),
-        about: page('./about/index.html'),
-        guides: page('./guides/index.html'),
-        guideAlkanes: page('./guides/how-to-name-alkanes/index.html'),
-        guideAlkenes: page('./guides/how-to-name-alkenes-and-alkynes/index.html'),
-        guideBranched: page('./guides/naming-branched-chains/index.html'),
-        guidePriority: page('./guides/functional-group-priority/index.html'),
+        main: 'index.html',
+        about: 'about/index.html',
+        guides: 'guides/index.html',
+        guideAlkanes: 'guides/how-to-name-alkanes/index.html',
+        guideAlkenes: 'guides/how-to-name-alkenes-and-alkynes/index.html',
+        guideBranched: 'guides/naming-branched-chains/index.html',
+        guidePriority: 'guides/functional-group-priority/index.html',
       },
     },
   },
