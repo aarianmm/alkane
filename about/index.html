@@ -117,174 +117,47 @@
       <h1>About The Alkane</h1>
 
       <p class="lede">
-        The Alkane turns a molecule you draw into its IUPAC systematic name. Sketch the atoms and
-        bonds in the browser and the name appears — no sign-up, no cost, no limit on how many
-        molecules you name. Built to be simple and accessible, for students, by students.
+        The Alkane is a free tool that turns a molecule you draw into its IUPAC name. Built for
+        students, it's simple, accessible, and free forever.
       </p>
 
       <h2>What is The Alkane?</h2>
       <p>
-        The Alkane is a free, open-source IUPAC name generator built for students: draw an organic
-        structure in the browser editor and it returns the systematic name IUPAC nomenclature
-        assigns to it, or tells you plainly if the structure falls outside what it covers. Under
-        the hood it's a deterministic rules engine, not a statistical or machine-learning model, so
-        the same structure always gets the same answer and it never invents a name it can't justify
-        from the rules.
-      </p>
-
-      <h2>How does it work?</h2>
-      <p>
-        A molecule is represented as a graph, not a picture: each atom is a node with an element
-        symbol, and each bond is an edge with an order of 1, 2 or 3. The browser editor lets you
-        build this graph by clicking atoms and bonds — there is no diagramming library underneath,
-        the SVG on screen is only a rendering of the graph — and on every edit the graph is
-        serialised to JSON and sent to the naming engine, which walks it, works out the parent
-        chain or ring, numbers it, orders the substituents, and returns the name. Because the
-        engine applies fixed IUPAC rules rather than pattern-matching against known molecules or
-        predicting from training data, its output is reproducible and it never hallucinates a
-        plausible-looking name for a structure it does not recognise.
-      </p>
-      <p>
-        Hydrogens can be left out of the graph; the engine fills them in from each atom's valency
-        deficit. Aromatic rings must be drawn Kekulé-style, with bond orders alternating
-        1,2,1,2,1,2 around the ring — a six-membered ring drawn with all single bonds is named as
-        cyclohexane, not benzene, because that is the structure that was actually submitted.
+        Draw an organic structure in the browser and The Alkane names it — or tells you plainly if
+        it can't, rather than guessing. No sign-up, no cost, no limit on how many molecules you
+        name.
       </p>
 
       <h2>What can it name?</h2>
       <p>
-        The engine covers organic nomenclature up to first-year undergraduate level, built from
-        the elements C, H, O, N, F, Cl, Br, I and S, with main chains of one to ten carbons.
-      </p>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>Covered</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Hydrocarbons</td>
-              <td>Straight and branched alkanes, alkenes and alkynes, correctly chain-selected and numbered</td>
-            </tr>
-            <tr>
-              <td>Suffix-capable groups</td>
-              <td>Carboxylic acid, acyl chloride, amide, nitrile, aldehyde, ketone, alcohol, thiol, amine, imine — named as a suffix when the principal group, a prefix otherwise</td>
-            </tr>
-            <tr>
-              <td>Prefix-only groups</td>
-              <td>Fluoro, chloro, bromo, iodo, nitro, with multiplying prefixes di– to nona–</td>
-            </tr>
-            <tr>
-              <td>Rings</td>
-              <td>cyclopropane to cyclodecane with substituents, and benzene (drawn Kekulé-style)</td>
-            </tr>
-            <tr>
-              <td>Benzene derivatives</td>
-              <td>Retained parent names — phenol, phenylamine, benzoic acid, benzoyl chloride, benzamide, benzonitrile, benzaldehyde — plus aryl ethers such as methoxybenzene</td>
-            </tr>
-            <tr>
-              <td>Bridged linkages</td>
-              <td>Esters, ethers, amines, amides and anhydrides, e.g. methyl ethanoate, methoxyethane, N-methylethanamide, ethanoic anhydride</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p>
-        The editor offers three formula styles — displayed, structural and skeletal — plus a
-        functional-group menu (carbonyl, carboxylic acid, acyl chloride, amide, nitrile, nitro,
-        methoxy), undo/redo and a delete mode, so the same structure can be built and checked in
-        whichever notation a syllabus uses.
+        Alkanes, alkenes and alkynes, straight or branched, plus rings, benzene, and the
+        functional groups you'll meet at GCSE and A-Level — alcohols, acids, amines, esters and
+        more — with chains up to ten carbons long. Stereochemistry and more complex ring systems
+        aren't covered yet.
       </p>
 
-      <h2>What will it refuse to name, and why?</h2>
+      <h2>The Story and History</h2>
       <p>
-        It names a molecule exactly or rejects it outright — it never guesses. An unsupported
-        structure returns an HTTP 422 error with an explanation instead of an approximate or
-        best-guess name. This matters most for anyone checking their own working: a wrong-looking
-        name would be misleading, but a rejection tells you plainly that the structure is outside
-        scope.
+        I started off tutoring GCSE chemistry at my school, and saw firsthand the struggles
+        students faced grasping the concepts needed for nomanclature. When it clicked, it clicked
+        but students needed a visual aid to practice. That is why I decided to create this tool.
       </p>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Out of scope</th>
-              <th>Examples</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Fused, bridged or spiro ring systems</td>
-              <td>naphthalene, decalin, spiro compounds</td>
-            </tr>
-            <tr>
-              <td>Heterocycles and rings with a ring heteroatom</td>
-              <td>THF, epoxides, pyrrolidine, lactones</td>
-            </tr>
-            <tr>
-              <td>Stereochemistry</td>
-              <td>E/Z and R/S descriptors — the model carries no 3D information</td>
-            </tr>
-            <tr>
-              <td>Charged species, isotopes, radicals, organometallics</td>
-              <td>not representable in the atom-and-bond input model</td>
-            </tr>
-            <tr>
-              <td>Chains longer than ten carbons</td>
-              <td>no root name exists beyond dec-</td>
-            </tr>
-            <tr>
-              <td>Two heteroatoms bonded to each other</td>
-              <td>peroxides, hydrazines, nitroso, nitrite and nitrate esters</td>
-            </tr>
-            <tr>
-              <td>More than one bridging heteroatom</td>
-              <td>dimethoxymethane, acetals</td>
-            </tr>
-            <tr>
-              <td>Branches on branches, or two groups on one branch tip</td>
-              <td>not modelled by the substituent grammar</td>
-            </tr>
-            <tr>
-              <td>Other unmodelled classes</td>
-              <td>sulfonic acids, ureas, carbamates, azo/diazo compounds, multiplicative di-suffix naming on rings</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h2>Who is it for?</h2>
       <p>
-        Anyone learning or teaching organic nomenclature — but it's built with students first in
-        mind. Draw the structure you're trying to name, compare it with the answer you worked out
-        by hand, and try again if it doesn't match. Teachers use it to generate practice molecules
-        and check answer keys quickly. No class set, no school licence, no account required —
-        anyone with a browser can open it and start naming.
+        The naming algorithm was written by myself for A-Level Computer Science coursework. The
+        program was written entirely manually and from scratch with each path validated against
+        actual IUPAC guidelines taught in Chemistry GCSE and A-Level. I have since expanded this
+        into the tool here today.
+      </p>
+      <p>
+        The algorithm covers every molecule may will encounter before univeristy, plus vastly
+        more, so you can explore, discover, and test yourself.
       </p>
 
-      <h2>Is it free, and is it open source?</h2>
+      <h2>Is it free and open source?</h2>
       <p>
-        Yes to both, and it stays that way. The Alkane needs no account, no payment and no
-        install, and there's no limit on how many molecules you can name — free forever, for
-        everyone. The naming engine (C# / .NET) is open source at
-        <a href="https://github.com/aarianmm/Organic-Namer-Engine">github.com/aarianmm/Organic-Namer-Engine</a>.
-        The web front end is React and TypeScript with no diagramming library — the molecule is
-        held as a graph and rendered as SVG directly.
-      </p>
-
-      <h2>How accurate is it?</h2>
-      <p>
-        As accurate as its rules are, by construction, because it is a deterministic rules engine
-        rather than a statistical model: the same structure always produces the same name, and
-        the name is derived by applying IUPAC selection rules (longest chain, most suffix groups,
-        lowest locants, in that order) rather than guessed from similar-looking examples. Where the
-        rules genuinely leave two chain choices equally valid, the tool shows both names rather
-        than picking one arbitrarily. If you find a structure that is named incorrectly, report it
-        as an issue on
-        <a href="https://github.com/aarianmm/Organic-Namer-Engine">the GitHub repository</a>.
+        Yes to both. No account, no payment, no install, and free forever. The naming engine is
+        open source on
+        <a href="https://github.com/aarianmm/Organic-Namer-Engine">GitHub</a>.
       </p>
 
       <a class="cta" href="/">
