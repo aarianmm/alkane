@@ -7,7 +7,7 @@
     <title>About The Alkane — a Free, Open-Source IUPAC Name Generator</title>
     <meta
       name="description"
-      content="The Alkane is a free, open-source IUPAC name generator that names an organic structure exactly or rejects it outright — never a guess. Includes a free API."
+      content="The Alkane is an IUPAC name generator built for students. Draw a structure and get its name — free forever, no sign-up, no limits."
     />
     <link rel="canonical" href="https://thealkane.com/about/" />
 
@@ -17,7 +17,7 @@
     <meta property="og:title" content="About The Alkane — a Free, Open-Source IUPAC Name Generator" />
     <meta
       property="og:description"
-      content="The Alkane is a free, open-source IUPAC name generator that names an organic structure exactly or rejects it outright — never a guess. Includes a free API."
+      content="The Alkane is a free, open-source IUPAC name generator built for students. Simple, accessible, and free forever — no sign-up, no limits."
     />
     <meta property="og:image" content="https://thealkane.com/og.png" />
     <meta property="og:image:width" content="1200" />
@@ -26,7 +26,7 @@
     <meta name="twitter:title" content="About The Alkane — a Free, Open-Source IUPAC Name Generator" />
     <meta
       name="twitter:description"
-      content="The Alkane is a free, open-source IUPAC name generator that names an organic structure exactly or rejects it outright — never a guess. Includes a free API."
+      content="The Alkane is a free, open-source IUPAC name generator built for students. Simple, accessible, and free forever — no sign-up, no limits."
     />
     <meta name="twitter:image" content="https://thealkane.com/og.png" />
 
@@ -47,7 +47,7 @@
             "@id": "https://thealkane.com/about/#page",
             "url": "https://thealkane.com/about/",
             "name": "About The Alkane",
-            "description": "The Alkane is a free IUPAC name generator that converts a drawn organic structure into its exact systematic name, or rejects the structure outright if it falls outside its supported scope.",
+            "description": "The Alkane is a free IUPAC name generator that converts a drawn organic structure into its exact systematic name built to be accessible and simple for students.",
             "inLanguage": "en",
             "isPartOf": { "@id": "https://thealkane.com/#website" },
             "mainEntity": { "@id": "https://thealkane.com/about/#app" }
@@ -72,7 +72,7 @@
               "Live IUPAC name as the structure changes",
               "Displayed, structural and skeletal formula views",
               "Rings and benzene",
-              "Free public naming API",
+              "Free forever, no account needed",
               "Open-source naming engine"
             ]
           },
@@ -108,7 +108,6 @@
         <a href="/">Namer</a>
         <a href="/guides/">Guides</a>
         <a href="/about/" aria-current="page">About</a>
-        <a href="https://api.thealkane.com/swagger">API</a>
       </nav>
     </header>
 
@@ -118,21 +117,19 @@
       <h1>About The Alkane</h1>
 
       <p class="lede">
-        The Alkane is a free tool that converts the structure of an organic molecule into its
-        IUPAC systematic name. Draw the molecule as atoms and bonds in the browser, or send the
-        same structure to its public API, and it returns the exact name — or explains why the
-        structure is outside what it can name.
+        The Alkane turns a molecule you draw into its IUPAC systematic name. Sketch the atoms and
+        bonds in the browser and the name appears — no sign-up, no cost, no limit on how many
+        molecules you name. Built to be simple and accessible, for students, by students.
       </p>
 
       <h2>What is The Alkane?</h2>
       <p>
-        The Alkane is a free, open-source IUPAC name generator: it takes an organic structure —
-        drawn in a browser editor or submitted as a JSON list of atoms and bonds — and returns the
-        systematic name that IUPAC nomenclature assigns to it, or refuses if the structure falls
-        outside its supported scope. The naming engine is a
-        deterministic rules engine, not a statistical or machine-learning model, so a given
-        structure always produces the same result and the tool never emits a name it cannot
-        justify from the rules.
+        The Alkane is a free, open-source IUPAC name generator built for students: draw an organic
+        structure in the browser editor and it returns the systematic name IUPAC nomenclature
+        assigns to it, or tells you plainly if the structure falls outside what it covers. Under
+        the hood it's a deterministic rules engine, not a statistical or machine-learning model, so
+        the same structure always gets the same answer and it never invents a name it can't justify
+        from the rules.
       </p>
 
       <h2>How does it work?</h2>
@@ -261,47 +258,18 @@
 
       <h2>Who is it for?</h2>
       <p>
-        Anyone learning or teaching organic nomenclature. Students use it to check their own
-        working while practising naming: draw the structure you are trying to name, compare it
-        with the answer you worked out by hand. Teachers use it to generate practice molecules and
-        verify answer keys quickly. Developers use the free public API to add structure-to-name
-        conversion to their own tools without writing a naming engine from scratch.
-      </p>
-
-      <h2>Is there an API?</h2>
-      <p>
-        Yes. The naming engine is exposed as a free public HTTP API at
-        <code>POST https://api.thealkane.com/api/name</code>, with a health check at
-        <code>GET https://api.thealkane.com/api/health</code> and interactive documentation at
-        <a href="https://api.thealkane.com/swagger">api.thealkane.com/swagger</a>. The request body
-        is a JSON list of atoms, each with an element symbol and a list of bonds to other atom
-        indices; hydrogens can be omitted and are filled in automatically. Ethane, for example:
-      </p>
-      <div class="table-scroll">
-        <pre><code>POST https://api.thealkane.com/api/name
-
-{
-  "atoms": [
-    { "element": "C", "bonds": [{ "to": 1, "order": 1 }] },
-    { "element": "C", "bonds": [{ "to": 0, "order": 1 }] }
-  ]
-}</code></pre>
-      </div>
-      <p>returns:</p>
-      <div class="table-scroll">
-        <pre><code>{ "names": ["ethane"] }</code></pre>
-      </div>
-      <p>
-        A structure the engine cannot name — a fused ring, say, or a charged species — returns
-        HTTP 422 with an error message rather than a fabricated name.
+        Anyone learning or teaching organic nomenclature — but it's built with students first in
+        mind. Draw the structure you're trying to name, compare it with the answer you worked out
+        by hand, and try again if it doesn't match. Teachers use it to generate practice molecules
+        and check answer keys quickly. No class set, no school licence, no account required —
+        anyone with a browser can open it and start naming.
       </p>
 
       <h2>Is it free, and is it open source?</h2>
       <p>
-        Yes to both. The Alkane needs no account, no payment and no install. The public API is
-        free to call; a per-IP fair-use rate limit may apply, which returns HTTP 429 if you
-        exceed it, so batch jobs should back off rather than retry hard. The naming engine (C# / .NET) is
-        open source at
+        Yes to both, and it stays that way. The Alkane needs no account, no payment and no
+        install, and there's no limit on how many molecules you can name — free forever, for
+        everyone. The naming engine (C# / .NET) is open source at
         <a href="https://github.com/aarianmm/Organic-Namer-Engine">github.com/aarianmm/Organic-Namer-Engine</a>.
         The web front end is React and TypeScript with no diagramming library — the molecule is
         held as a graph and rendered as SVG directly.
@@ -313,7 +281,7 @@
         rather than a statistical model: the same structure always produces the same name, and
         the name is derived by applying IUPAC selection rules (longest chain, most suffix groups,
         lowest locants, in that order) rather than guessed from similar-looking examples. Where the
-        rules genuinely leave two chain choices equally valid, the API returns both names rather
+        rules genuinely leave two chain choices equally valid, the tool shows both names rather
         than picking one arbitrarily. If you find a structure that is named incorrectly, report it
         as an issue on
         <a href="https://github.com/aarianmm/Organic-Namer-Engine">the GitHub repository</a>.
@@ -332,9 +300,9 @@
           </a>
         </li>
         <li>
-          <a class="card" href="https://api.thealkane.com/swagger">
-            <strong>API documentation</strong>
-            <span>Interactive Swagger docs for the free naming API.</span>
+          <a class="card" href="https://github.com/aarianmm/Organic-Namer-Engine">
+            <strong>Source code</strong>
+            <span>The naming engine is open source — read it, fork it, or open an issue.</span>
           </a>
         </li>
       </ul>
@@ -342,12 +310,11 @@
 
     <footer class="site-footer">
       <div class="site-footer__inner">
-        <span>The Alkane — a free IUPAC name generator.</span>
+        <span>The Alkane — free forever, built for students.</span>
         <nav class="site-footer__links" aria-label="Footer">
           <a href="/">Namer</a>
           <a href="/guides/">Guides</a>
           <a href="/about/">About</a>
-          <a href="https://api.thealkane.com/swagger">API docs</a>
           <a href="https://github.com/aarianmm/Organic-Namer-Engine">Source</a>
         </nav>
       </div>
