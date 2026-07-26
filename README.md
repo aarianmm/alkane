@@ -39,8 +39,6 @@ loads the app bundle:
 |---|---|
 | `/` | `index.html` (editor + crawlable copy below it) |
 | `/about/` | `about/index.html` |
-| `/guides/` | `guides/index.html` |
-| `/guides/<slug>/` | `guides/<slug>/index.html` |
 
 The reason for the split: a Vite SPA ships an empty `<div id="root">`, and most LLM
 crawlers and social scrapers do not run JavaScript at all. Anything that needs to be

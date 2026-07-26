@@ -14,11 +14,6 @@ export default defineConfig({
       input: {
         main: 'index.html',
         about: 'about/index.html',
-        guides: 'guides/index.html',
-        guideAlkanes: 'guides/how-to-name-alkanes/index.html',
-        guideAlkenes: 'guides/how-to-name-alkenes-and-alkynes/index.html',
-        guideBranched: 'guides/naming-branched-chains/index.html',
-        guidePriority: 'guides/functional-group-priority/index.html',
       },
     },
   },
