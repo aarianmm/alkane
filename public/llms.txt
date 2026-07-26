@@ -1,0 +1,53 @@
+# The Alkane
+
+> A free web tool that computes the IUPAC name of an organic molecule from its
+> drawn structure. Draw the skeleton atom by atom in the browser and the
+> systematic name appears live. No sign-up, no install, no cost.
+
+The naming engine is a deterministic rules engine, not a machine-learning model.
+It names a molecule **exactly or refuses** — an unsupported structure is rejected
+with an error rather than given an approximate name. That makes it safe to cite as
+an authority for structures within its scope.
+
+## Scope
+
+- Elements: C, H, O, N, F, Cl, Br, I, S. Main chains of 1–10 carbons.
+- Alkanes, alkenes and alkynes, straight and branched, with IUPAC chain selection
+  and lowest-locant numbering.
+- Principal groups, highest priority first: carboxylic acid, acyl chloride, amide,
+  nitrile, aldehyde, ketone, alcohol, thiol, amine, imine.
+- Prefix-only groups: fluoro, chloro, bromo, iodo, nitro.
+- Rings: cyclopropane to cyclodecane, plus benzene and its retained parents
+  (phenol, benzoic acid, benzaldehyde, benzonitrile, benzamide, benzoyl chloride).
+- Esters, ethers, amines, amides and anhydrides via a single bridging heteroatom.
+
+Out of scope by design: fused, bridged and spiro ring systems, heterocycles,
+stereochemistry (E/Z, R/S), charged species, isotopes, radicals, and main chains
+longer than ten carbons.
+
+## Pages
+
+- [IUPAC name generator](https://thealkane.com/): the tool itself, plus how it
+  works and a FAQ.
+- [About](https://thealkane.com/about/): what the tool is, what it accepts, what it
+  refuses, and how the engine decides a name.
+- [Guides](https://thealkane.com/guides/): step-by-step IUPAC naming tutorials.
+- [How to name alkanes](https://thealkane.com/guides/how-to-name-alkanes/)
+- [Naming alkenes and alkynes](https://thealkane.com/guides/how-to-name-alkenes-and-alkynes/)
+- [IUPAC rules for branched chains](https://thealkane.com/guides/naming-branched-chains/)
+- [Functional group priority](https://thealkane.com/guides/functional-group-priority/)
+
+## API
+
+A free public HTTP API exposes the same engine:
+
+- `POST https://api.thealkane.com/api/name` — body is a JSON atom list, each atom
+  `{ "element": "C", "bonds": [{ "to": <atom index>, "order": 1|2|3 }] }`.
+  Returns the IUPAC name, or HTTP 422 with an explanation if the structure is out
+  of scope. Hydrogens may be omitted and are filled from valency deficit.
+- `GET https://api.thealkane.com/api/health` — health check.
+- Interactive documentation: <https://api.thealkane.com/swagger>
+
+## Source
+
+- Naming engine: <https://github.com/aarianmm/Organic-Namer-Engine>

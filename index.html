@@ -3,10 +3,328 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Alkane</title>
+
+    <title>IUPAC Name Generator — Draw a Molecule, Get Its Name | The Alkane</title>
+    <meta
+      name="description"
+      content="Draw an organic structure in your browser and get its IUPAC name instantly. A free molecule naming tool for chemistry students — no sign-up, no install."
+    />
+    <link rel="canonical" href="https://thealkane.com/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="The Alkane" />
+    <meta property="og:url" content="https://thealkane.com/" />
+    <meta property="og:title" content="IUPAC Name Generator — Draw a Molecule, Get Its Name" />
+    <meta
+      property="og:description"
+      content="Draw an organic structure in your browser and get its IUPAC name instantly. Free, no sign-up, no install."
+    />
+    <meta property="og:image" content="https://thealkane.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A skeletal structure being named 2-methylbutane by The Alkane." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="IUPAC Name Generator — Draw a Molecule, Get Its Name" />
+    <meta
+      name="twitter:description"
+      content="Draw an organic structure in your browser and get its IUPAC name instantly. Free, no sign-up, no install."
+    />
+    <meta name="twitter:image" content="https://thealkane.com/og.png" />
+
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#2563eb" />
+
+    <link rel="stylesheet" href="/src/site.css" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://thealkane.com/#website",
+            "url": "https://thealkane.com/",
+            "name": "The Alkane",
+            "description": "A free tool that computes the IUPAC name of an organic molecule from its drawn structure.",
+            "inLanguage": "en"
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://thealkane.com/#app",
+            "name": "The Alkane — IUPAC Name Generator",
+            "url": "https://thealkane.com/",
+            "description": "Draw an organic structure atom by atom and read off its IUPAC name. Supports alkanes, alkenes, alkynes, rings, benzene, alcohols, aldehydes, ketones, carboxylic acids, esters, ethers, amines, amides and halogenoalkanes.",
+            "applicationCategory": "EducationalApplication",
+            "operatingSystem": "Any — runs in a web browser",
+            "browserRequirements": "Requires JavaScript to draw; all reference pages work without it.",
+            "isAccessibleForFree": true,
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
+            "featureList": [
+              "Draw molecules atom by atom in the browser",
+              "Live IUPAC name as the structure changes",
+              "Displayed, structural and skeletal formula views",
+              "Rings and benzene",
+              "Free public naming API"
+            ],
+            "inLanguage": "en"
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://thealkane.com/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is an IUPAC name?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "An IUPAC name is the systematic name of a chemical compound, built from rules published by the International Union of Pure and Applied Chemistry. Unlike a common name such as \"acetone\", an IUPAC name like \"propan-2-one\" describes the structure itself: how many carbons the main chain has, what is attached to it, and where."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is The Alkane free to use?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. The tool is free, needs no account, and runs entirely in your browser. There is nothing to install and no usage limit for normal study use."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do I name a molecule from its structure?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Find the longest carbon chain containing the principal functional group, number it from the end that gives the group the lowest locant, name the substituents hanging off it, then list those substituents alphabetically in front of the parent chain name with their locants. The Alkane applies these steps for you as you draw."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Why does it say it cannot name my molecule?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The Alkane names a molecule exactly or refuses — it never guesses. Structures outside its scope, such as fused ring systems, heterocycles, stereochemistry, charged species or main chains longer than ten carbons, are rejected with an explanation rather than given an approximate name."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is there an API for naming molecules?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. The same naming engine is exposed as a free public HTTP API: POST a JSON atom-and-bond list to https://api.thealkane.com/api/name and it returns the IUPAC name. Interactive documentation is at https://api.thealkane.com/swagger."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does it handle stereochemistry, E/Z or R/S?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. The molecule model has no three-dimensional information, so E/Z and R/S descriptors are out of scope, as are charged species, isotopes and radicals."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
+    <header class="site-header">
+      <a class="site-header__brand" href="/">
+        <img src="/logo.svg" alt="" width="28" height="28" />
+        The Alkane
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/" aria-current="page">Namer</a>
+        <a href="/guides/">Guides</a>
+        <a href="/about/">About</a>
+        <a href="https://api.thealkane.com/swagger">API</a>
+      </nav>
+    </header>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <main class="page page--below-app prose">
+      <h1>IUPAC name generator: draw a structure, get the name</h1>
+
+      <p class="lede">
+        The Alkane is a free IUPAC name generator. Build an organic molecule atom by atom in the
+        editor above and its systematic name appears underneath, updating every time you change the
+        structure. There is no sign-up, no install and no cost.
+      </p>
+
+      <h2>What does this tool do?</h2>
+      <p>
+        It converts a <strong>structure into a name</strong>. You draw the skeleton — carbons,
+        heteroatoms, double and triple bonds, rings, functional groups — and the naming engine works
+        out the parent chain, numbers it, orders the substituents and returns the IUPAC name, for
+        example <code>2-methylbutane</code>, <code>propan-2-one</code> or
+        <code>methyl 3-nitrobenzoate</code>.
+      </p>
+      <p>
+        It is built for the part of chemistry that is hardest to practise alone: you can check your
+        own answer against the machine's instantly, and change one bond to see exactly how the name
+        changes with it.
+      </p>
+
+      <h2>How do you name a molecule with it?</h2>
+      <ol>
+        <li>
+          <strong>Pick an atom or a bond</strong> from the toolbar — carbon by default, or O, N, S,
+          F, Cl, Br or I.
+        </li>
+        <li>
+          <strong>Click a grey stub</strong> on the drawing to grow the molecule in that direction.
+          Click an existing atom to replace it, or a bond to change its order.
+        </li>
+        <li>
+          <strong>Add rings and groups</strong> from the Rings and Groups menus — cyclopropane
+          through cyclooctane, benzene, and groups such as carbonyl, carboxylic acid, amide, nitrile
+          and nitro.
+        </li>
+        <li>
+          <strong>Read the name</strong> below the canvas. It refreshes as you draw; if a structure
+          falls outside the supported set, the tool says so instead of guessing.
+        </li>
+      </ol>
+      <p>
+        Three drawing conventions are available — <strong>displayed</strong> (every atom and bond
+        shown), <strong>structural</strong> (condensed) and <strong>skeletal</strong> (the zig-zag
+        line notation used in exams) — so you can practise reading the same molecule in whichever
+        form your syllabus uses.
+      </p>
+
+      <h2>What molecules can it name?</h2>
+      <p>
+        The engine covers the organic nomenclature taught at school and first-year undergraduate
+        level, with main chains of up to ten carbons:
+      </p>
+      <ul>
+        <li>
+          <strong>Hydrocarbons</strong> — straight and branched alkanes, alkenes and alkynes, with
+          correct chain selection and lowest-locant numbering.
+        </li>
+        <li>
+          <strong>Functional groups</strong> — carboxylic acids, acyl chlorides, amides, nitriles,
+          aldehydes, ketones, alcohols, thiols, amines and imines, named as a suffix when they are
+          the principal group and as a prefix when they are not.
+        </li>
+        <li>
+          <strong>Halogenoalkanes and nitro compounds</strong> — fluoro, chloro, bromo, iodo and
+          nitro prefixes, with multiplying prefixes up to nona-.
+        </li>
+        <li><strong>Rings</strong> — cyclopropane to cyclodecane, with substituents.</li>
+        <li>
+          <strong>Benzene derivatives</strong> — including the retained parent names phenol, benzoic
+          acid, benzaldehyde, benzonitrile, benzamide and benzoyl chloride.
+        </li>
+        <li>
+          <strong>Esters, ethers, amines, amides and anhydrides</strong> — such as methyl ethanoate,
+          methoxyethane, N-methylethanamide and ethanoic anhydride.
+        </li>
+      </ul>
+      <p>
+        Deliberately out of scope: fused and bridged ring systems, heterocycles, stereochemistry
+        (E/Z, R/S), charged species, isotopes and radicals. The engine
+        <strong>names a molecule exactly or rejects it</strong> — it never returns an approximate
+        name, which is what makes it safe to check your homework against.
+      </p>
+
+      <h2>How does it decide which chain is the parent?</h2>
+      <p>
+        It applies the IUPAC selection rules in order: the longest chain wins; ties are broken by the
+        chain carrying the most principal-group occurrences, then by the lowest locants for that
+        group, then for double and triple bonds, then for the prefixes. Where the rules genuinely
+        leave two names equally valid, both are shown rather than one picked arbitrarily.
+      </p>
+
+      <h2>Learn the rules</h2>
+      <ul class="card-grid">
+        <li>
+          <a class="card" href="/guides/how-to-name-alkanes/">
+            <strong>How to name alkanes</strong>
+            <span>The five-step method for straight and branched chains, worked through.</span>
+          </a>
+        </li>
+        <li>
+          <a class="card" href="/guides/how-to-name-alkenes-and-alkynes/">
+            <strong>Naming alkenes and alkynes</strong>
+            <span>Where the double bond goes in the name, and why the locant moved.</span>
+          </a>
+        </li>
+        <li>
+          <a class="card" href="/guides/naming-branched-chains/">
+            <strong>IUPAC rules for branched chains</strong>
+            <span>Choosing the parent chain, numbering it, and alphabetical order.</span>
+          </a>
+        </li>
+        <li>
+          <a class="card" href="/guides/functional-group-priority/">
+            <strong>Functional group priority</strong>
+            <span>Which group becomes the suffix, and which drop to prefixes.</span>
+          </a>
+        </li>
+      </ul>
+
+      <h2 id="faq">Frequently asked questions</h2>
+      <div class="faq">
+        <h3>What is an IUPAC name?</h3>
+        <p>
+          An IUPAC name is the systematic name of a compound, built from rules published by the
+          International Union of Pure and Applied Chemistry. Where a common name like "acetone" has
+          to be memorised, an IUPAC name like <code>propan-2-one</code> describes the structure
+          itself: the length of the main chain, what is attached to it, and where.
+        </p>
+
+        <h3>Is The Alkane free?</h3>
+        <p>
+          Yes — free, no account, nothing to install. It runs in the browser and the naming engine is
+          open source.
+        </p>
+
+        <h3>Why does it say it cannot name my molecule?</h3>
+        <p>
+          Because it names exactly or refuses. If your structure uses a feature outside the supported
+          set — a fused ring, a heterocycle, a chain longer than ten carbons, a charge — it reports
+          that rather than inventing a plausible-looking name.
+        </p>
+
+        <h3>Is there an API?</h3>
+        <p>
+          Yes. The same engine is a free public HTTP API: <code>POST</code> a JSON atom-and-bond list
+          to <code>https://api.thealkane.com/api/name</code> and it returns the name. See the
+          <a href="https://api.thealkane.com/swagger">interactive API documentation</a>.
+        </p>
+
+        <h3>Can I use it on a phone?</h3>
+        <p>Yes. The editor is touch-friendly and the layout adapts to small screens.</p>
+
+        <h3>Does it do stereochemistry?</h3>
+        <p>
+          No. The molecule model holds atoms and bonds but no three-dimensional arrangement, so E/Z
+          and R/S descriptors are out of scope.
+        </p>
+      </div>
+
+      <p>
+        More detail on how the tool works and exactly what it accepts is on the
+        <a href="/about/">about page</a>.
+      </p>
+    </main>
+
+    <footer class="site-footer">
+      <div class="site-footer__inner">
+        <span>The Alkane — a free IUPAC name generator.</span>
+        <nav class="site-footer__links" aria-label="Footer">
+          <a href="/">Namer</a>
+          <a href="/guides/">Guides</a>
+          <a href="/about/">About</a>
+          <a href="https://api.thealkane.com/swagger">API docs</a>
+          <a href="https://github.com/aarianmm/Organic-Namer-Engine">Source</a>
+        </nav>
+      </div>
+    </footer>
   </body>
 </html>

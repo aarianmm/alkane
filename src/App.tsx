@@ -58,7 +58,8 @@ function App() {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        minHeight: "100dvh",
+        // Matches #root: the static site header above the editor eats into the viewport.
+        minHeight: "calc(100dvh - var(--site-header-h, 3.5rem))",
         padding: "1.5rem",
         gap: "1rem",
       }}
