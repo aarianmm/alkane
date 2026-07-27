@@ -1,16 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="the-alkane-logo-title">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21.695833 24.341668" role="img" aria-labelledby="the-alkane-logo-title">
   <title id="the-alkane-logo-title">The Alkane</title>
-  <polyline
-    points="8,42 20,20 32,42 44,20 56,42"
-    fill="none"
-    stroke="#2563eb"
-    stroke-width="6"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
-  <circle cx="8"  cy="42" r="3.4" fill="#1d4ed8" />
-  <circle cx="20" cy="20" r="3.4" fill="#1d4ed8" />
-  <circle cx="32" cy="42" r="3.4" fill="#1d4ed8" />
-  <circle cx="44" cy="20" r="3.4" fill="#1d4ed8" />
-  <circle cx="56" cy="42" r="3.4" fill="#1d4ed8" />
+  <g transform="translate(-52.096355,-76.493618)" fill="#2563eb">
+    <path d="m 63.011719,79.091797 -8.269531,4.773437 v 0.144532 9.40625 l 8.269531,4.773437 8.269531,-4.773437 v -9.550782 z m 0,0.576172 7.769531,4.486328 v 8.972656 l -7.769531,4.486328 -7.769531,-4.486328 v -8.972656 z" />
+    <path d="m 62.886719,80.486328 -6.873047,3.96875 0.25,0.433594 6.873047,-3.96875 z" />
+    <path d="m 56.263672,92.392578 -0.25,0.433594 6.873047,3.96875 0.25,-0.433594 z" />
+    <path d="m 69.636719,84.671875 v 7.9375 h 0.5 v -7.9375 z" />
+  </g>
 </svg>
