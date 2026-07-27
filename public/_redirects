@@ -1,0 +1,5 @@
+# Canonical host is the apex, https://thealkane.com — every page also declares it
+# with <link rel="canonical">. Cloudflare Pages only applies hostname-matching
+# rules on custom domains; if www ever resolves without redirecting, add an
+# equivalent Redirect Rule in the Cloudflare dashboard as the belt-and-braces fix.
+https://www.thealkane.com/* https://thealkane.com/:splat 301

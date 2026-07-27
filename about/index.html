@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>About The Alkane — a Free, Open-Source IUPAC Name Generator</title>
+    <meta
+      name="description"
+      content="The Alkane is an IUPAC name generator built for students. Draw a structure and get its name — free forever, no sign-up, no limits."
+    />
+    <link rel="canonical" href="https://thealkane.com/about/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="The Alkane" />
+    <meta property="og:url" content="https://thealkane.com/about/" />
+    <meta property="og:title" content="About The Alkane — a Free, Open-Source IUPAC Name Generator" />
+    <meta
+      property="og:description"
+      content="The Alkane is a free, open-source IUPAC name generator built for students. Simple, accessible, and free forever — no sign-up, no limits."
+    />
+    <meta property="og:image" content="https://thealkane.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="About The Alkane — a Free, Open-Source IUPAC Name Generator" />
+    <meta
+      name="twitter:description"
+      content="The Alkane is a free, open-source IUPAC name generator built for students. Simple, accessible, and free forever — no sign-up, no limits."
+    />
+    <meta name="twitter:image" content="https://thealkane.com/og.png" />
+
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#2563eb" />
+
+    <link rel="stylesheet" href="/src/site.css" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "AboutPage",
+            "@id": "https://thealkane.com/about/#page",
+            "url": "https://thealkane.com/about/",
+            "name": "About The Alkane",
+            "description": "The Alkane is a free IUPAC name generator that converts a drawn organic structure into its exact systematic name built to be accessible and simple for students.",
+            "inLanguage": "en",
+            "isPartOf": { "@id": "https://thealkane.com/#website" },
+            "mainEntity": { "@id": "https://thealkane.com/about/#app" }
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://thealkane.com/about/#app",
+            "name": "The Alkane",
+            "url": "https://thealkane.com/",
+            "description": "A free, open-source IUPAC name generator. Draw an organic molecule as a graph of atoms and bonds in the browser and it returns the systematic IUPAC name, computed by a deterministic rules engine rather than a machine-learning model. Unsupported structures are rejected with an error rather than given an approximate name.",
+            "applicationCategory": "EducationalApplication",
+            "operatingSystem": "Any — runs in a web browser",
+            "isAccessibleForFree": true,
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
+            "author": {
+              "@type": "Organization",
+              "name": "The Alkane",
+              "url": "https://thealkane.com/"
+            },
+            "featureList": [
+              "Draw molecules atom by atom in the browser",
+              "Live IUPAC name as the structure changes",
+              "Displayed, structural and skeletal formula views",
+              "Rings and benzene",
+              "Free forever, no account needed",
+              "Student friendly",
+              "Open-source naming engine"
+            ]
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://thealkane.com/about/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://thealkane.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "About",
+                "item": "https://thealkane.com/about/"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="site-header__brand" href="/">
+        <img src="/logo.svg" alt="" width="28" height="28" />
+        The Alkane
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/">Namer</a>
+        <a href="/about/" aria-current="page">About</a>
+      </nav>
+    </header>
+
+    <main class="page prose">
+      <p class="breadcrumb"><a href="/">Home</a> › About</p>
+
+      <h1>About The Alkane</h1>
+
+      <p class="lede">
+        The Alkane is a free tool that turns a molecule you draw into its IUPAC name. Built for
+        students, it's simple, accessible, and free forever.
+      </p>
+
+      <h2>The Story and History</h2>
+      <p>
+        I started off tutoring GCSE chemistry at my school, and saw firsthand the struggles
+        students faced grasping the concepts needed for nomenclature. When it clicked, it clicked
+        but students needed a visual aid to practice. That is why I decided to create this tool.
+      </p>
+      <p>
+        The naming algorithm was written by myself for A-Level Computer Science coursework. The
+        program was written entirely manually and from scratch with each path validated against
+        actual IUPAC guidelines taught in Chemistry GCSE and A-Level. I have since expanded this
+        into the tool here today, but it is still fully deterministic, conservative in scope,
+        never guesses, and will never give a confidently wrong name.
+      </p>
+      <p>
+        When I first released the naming software in 2023, it was the first open-source IUPAC namer of its kind.
+        In the years since, other great attempts have been released to solve naming but this remains the only free and open-source
+        naming tool designed for students!
+      </p>
+      <p>
+        The algorithm covers every molecule you may encounter before university, plus vastly
+        more, so you can explore, discover, and test yourself.
+      </p>
+
+      <h2>What can it name?</h2>
+      <p>
+        Alkanes, alkenes and alkynes, straight or branched, plus rings, aromatics, and all the
+        functional groups you'll meet at GCSE and A-Level — alcohols, acids, amines, esters and
+        more.
+      </p>
+
+      <h2>Is it free and open source?</h2>
+      <p>
+        Yes to both. No account, no payment, no install, and free forever. The naming engine is
+        open source on
+        <a href="https://github.com/aarianmm/Organic-Namer-Engine">GitHub</a>, please just credit me!
+      </p>
+
+      <a class="cta" href="/">
+        <strong>Try the namer</strong>
+        <span>Draw a structure and read off its IUPAC name, free, in the browser.</span>
+      </a>
+
+      <ul class="card-grid">
+        <li>
+          <a class="card" href="https://github.com/aarianmm/Organic-Namer-Engine">
+            <strong>Source code</strong>
+            <span>The naming engine is open source — read it, fork it, or open an issue.</span>
+          </a>
+        </li>
+      </ul>
+    </main>
+
+    <footer class="site-footer">
+      <div class="site-footer__inner">
+        <span>The Alkane - convert organic structures to IUPAC names, built for students.</span>
+        <nav class="site-footer__links" aria-label="Footer">
+          <a href="/">Namer</a>
+          <a href="/about/">About</a>
+          <a href="https://github.com/aarianmm/Organic-Namer-Engine">Source</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

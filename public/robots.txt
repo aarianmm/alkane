@@ -1,0 +1,7 @@
+# thealkane.com — a free IUPAC naming tool. Everything here is public and
+# meant to be indexed and cited. AI crawlers are welcome; nothing is disallowed.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://thealkane.com/sitemap.xml

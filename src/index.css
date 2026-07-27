@@ -15,6 +15,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * The editor no longer owns the whole viewport: a static site header sits above
+ * it and crawlable prose sits below it, both rendered straight from index.html
+ * so they exist without JavaScript. Subtract the header so the editor still
+ * fills the first screen without pushing the prose a full viewport down.
+ */
 #root {
-  min-height: 100dvh;
+  min-height: calc(100dvh - var(--site-header-h, 3.5rem));
 }

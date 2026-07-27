@@ -3,10 +3,102 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Alkane</title>
+
+    <title>IUPAC Name Generator — Draw a Molecule, Get Its Name | The Alkane</title>
+    <meta
+      name="description"
+      content="Draw an organic structure and get its IUPAC name instantly. A free, unlimited molecule naming tool built for chemistry students — no sign-up, no install."
+    />
+    <link rel="canonical" href="https://thealkane.com/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="The Alkane" />
+    <meta property="og:url" content="https://thealkane.com/" />
+    <meta property="og:title" content="IUPAC Name Generator — Draw a Molecule, Get Its Name" />
+    <meta
+      property="og:description"
+      content="Draw an organic structure in your browser and get its IUPAC name instantly. Free forever, no sign-up, no install."
+    />
+    <meta property="og:image" content="https://thealkane.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A skeletal structure being named 2-methylbutane by The Alkane." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="IUPAC Name Generator — Draw a Molecule, Get Its Name" />
+    <meta
+      name="twitter:description"
+      content="Draw an organic structure in your browser and get its IUPAC name instantly. Free forever, no sign-up, no install."
+    />
+    <meta name="twitter:image" content="https://thealkane.com/og.png" />
+
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#2563eb" />
+
+    <link rel="stylesheet" href="/src/site.css" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://thealkane.com/#website",
+            "url": "https://thealkane.com/",
+            "name": "The Alkane",
+            "description": "A free tool, built for students, that computes the IUPAC name of an organic molecule from its drawn structure — free forever, no limits.",
+            "inLanguage": "en"
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://thealkane.com/#app",
+            "name": "The Alkane — IUPAC Name Generator",
+            "url": "https://thealkane.com/",
+            "description": "Draw an organic structure atom by atom and read off its IUPAC name. Supports alkanes, alkenes, alkynes, rings, benzene, alcohols, aldehydes, ketones, carboxylic acids, esters, ethers, amines, amides and halogenoalkanes.",
+            "applicationCategory": "EducationalApplication",
+            "operatingSystem": "Any — runs in a web browser",
+            "browserRequirements": "Requires JavaScript to draw; all reference pages work without it.",
+            "isAccessibleForFree": true,
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
+            "featureList": [
+              "Draw molecules atom by atom in the browser",
+              "Live IUPAC name as the structure changes",
+              "Displayed, structural and skeletal formula views",
+              "Rings and benzene",
+              "Free forever, no sign-up, no limit"
+            ],
+            "inLanguage": "en"
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
+    <header class="site-header">
+      <a class="site-header__brand" href="/">
+        <img src="/logo.svg" alt="" width="28" height="28" />
+        The Alkane
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/" aria-current="page">Namer</a>
+        <a href="/about/">About</a>
+      </nav>
+    </header>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <footer class="site-footer">
+      <div class="site-footer__inner">
+        <span>The Alkane - convert organic structures to IUPAC names, built for students.</span>
+        <nav class="site-footer__links" aria-label="Footer">
+          <a href="/">Namer</a>
+          <a href="/about/">About</a>
+          <a href="https://github.com/aarianmm/Organic-Namer-Engine">Source</a>
+        </nav>
+      </div>
+    </footer>
   </body>
 </html>
