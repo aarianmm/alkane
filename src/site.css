@@ -97,12 +97,6 @@ body {
   max-width: 56rem;
 }
 
-/* The homepage's prose sits below the editor, so it needs a visible seam. */
-.page--below-app {
-  border-top: 1px solid var(--line);
-  margin-top: 2rem;
-}
-
 /* ---------- prose ---------- */
 
 .prose h1 {
