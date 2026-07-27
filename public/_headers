@@ -7,22 +7,21 @@
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
-# Brand assets aren't fingerprinted, so keep the ceiling short enough that a
-# swapped logo or icon shows up the same day rather than sitting stale for a week.
+# Brand assets change rarely but aren't fingerprinted — a day is a safe ceiling.
 /og.png
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=86400
 /logo.svg
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=86400
 /favicon.svg
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=86400
 /favicon.ico
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=86400
 /apple-touch-icon.png
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=86400
 /icon-192.png
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=86400
 /icon-512.png
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=86400
 
 # Crawler-facing files must be re-fetched promptly when routes change.
 /robots.txt
