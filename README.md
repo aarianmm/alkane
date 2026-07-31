@@ -37,14 +37,14 @@ loads the app bundle:
 
 | Route | File |
 |---|---|
-| `/` | `index.html` (editor only, header/footer are static markup) |
+| `/` | `index.html` (editor + crawlable copy below it) |
 | `/about/` | `about/index.html` |
 
 The reason for the split: a Vite SPA ships an empty `<div id="root">`, and most LLM
 crawlers and social scrapers do not run JavaScript at all. Anything that needs to be
 read by a crawler therefore lives in the HTML source, not in React. On `/` that means
-the site header and the footer are plain markup in `index.html`; the editor mounts
-between them.
+the site header, the prose below the editor and the footer are plain markup in
+`index.html`; the editor mounts between them.
 
 Adding a route means adding **both** an entry in `vite.config.ts` and a `<url>` in
 `public/sitemap.xml`.
