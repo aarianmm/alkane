@@ -31,6 +31,11 @@ longer than ten carbons.
   works and a FAQ.
 - [About](https://thealkane.com/about/): what the tool is, what it accepts, what it
   refuses, and how the engine decides a name.
+- [Guides](https://thealkane.com/guides/): step-by-step IUPAC naming tutorials.
+- [How to name alkanes](https://thealkane.com/guides/how-to-name-alkanes/)
+- [Naming alkenes and alkynes](https://thealkane.com/guides/how-to-name-alkenes-and-alkynes/)
+- [IUPAC rules for branched chains](https://thealkane.com/guides/naming-branched-chains/)
+- [Functional group priority](https://thealkane.com/guides/functional-group-priority/)
 
 ## API
 
