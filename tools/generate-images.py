@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Generate The Alkane's brand raster images with Pillow.
+Generate The Alkane's brand raster images from the benzene-ring mark.
 
-There's no SVG rasteriser on this machine, so the same zig-zag mark that's
-hand-written in public/logo.svg / public/favicon.svg is redrawn here directly
-with Pillow primitives. Everything is drawn at 4x supersample and downscaled
-with LANCZOS so edges/text stay smooth.
+public/logo.svg and public/favicon.svg are the source of truth for the mark
+itself. There's no SVG rasteriser on this machine, so headless Chrome renders
+an HTML wrapper around those same paths at the target pixel size, and Pillow
+composites/downsamples the result (plus draws the og.png card, which is pure
+Pillow text/shape work).
 
 Outputs (all written to public/):
   favicon.ico          16x16, 32x32, 48x48 (transparent)
@@ -18,6 +19,9 @@ Re-run with:
   python3 tools/generate-images.py
 """
 
+import re
+import subprocess
+import tempfile
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -25,16 +29,14 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 PUBLIC = ROOT / "public"
 
+CHROME = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+
 # Brand palette
 ACCENT_BLUE = (37, 99, 235)      # #2563eb
-DARK_BLUE = (29, 78, 216)        # #1d4ed8
 INK = (26, 29, 33)               # #1a1d21
 SOFT_INK = (75, 85, 99)          # #4b5563
 FAINT = (107, 114, 128)          # #6b7280
 PAPER = (255, 255, 255)          # #ffffff
-SOFT_PAPER = (247, 248, 250)     # #f7f8fa
-LINE = (229, 231, 235)           # #e5e7eb
-TINT = (234, 241, 255)           # #eaf1ff
 
 SS = 4  # supersample factor for all raster renders
 
@@ -64,70 +66,70 @@ def font(size, bold=False):
     return ImageFont.truetype(str(path), size)
 
 
-def draw_zigzag_mark(draw, cx, cy, scale, favicon_style=False):
-    """Draw the zig-zag alkane mark centred at (cx, cy).
+# ---------------------------------------------------------------------------
+# Benzene mark rendering — rasterised from the same paths as public/favicon.svg
+# so every asset stays in sync with the one hand-written source of truth.
+# ---------------------------------------------------------------------------
 
-    `scale` maps the 64x64 SVG viewBox unit to pixels. `favicon_style` uses
-    the thicker/simpler favicon.svg geometry instead of logo.svg's.
+_SVG_SOURCE = (PUBLIC / "favicon.svg").read_text()
+_BENZENE_PATHS = "".join(re.findall(r"<path[^>]*/>", _SVG_SOURCE))
+if not _BENZENE_PATHS:
+    raise RuntimeError("Could not extract benzene mark paths from public/favicon.svg")
+
+
+def render_benzene_mark(size, bg=None, padding_frac=0.06, color="#2563eb"):
+    """Rasterise the benzene ring mark at `size` px square via headless Chrome.
+
+    Returns an RGBA image (transparent) if bg is None, else an RGB image
+    flattened onto the given CSS background colour.
     """
-    if favicon_style:
-        pts = [(8, 44), (24, 20), (40, 44), (56, 20)]
-        stroke_w = 8.5
-        dot_r = 4.6
-    else:
-        pts = [(8, 42), (20, 20), (32, 42), (44, 20), (56, 42)]
-        stroke_w = 6.0
-        dot_r = 3.4
+    mark_px = round(size * (1 - 2 * padding_frac))
+    body_bg = bg if bg is not None else "transparent"
+    html = f"""<!doctype html><html><head><style>
+html,body{{margin:0;padding:0;background:{body_bg};}}
+svg{{display:block;}}
+</style></head><body>
+<div style="width:{size}px;height:{size}px;display:flex;align-items:center;justify-content:center;">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21.695833 24.341668" width="{mark_px}" height="{mark_px}">
+  <g transform="translate(-52.096355,-76.493618)" fill="{color}">
+    {_BENZENE_PATHS}
+  </g>
+</svg>
+</div>
+</body></html>"""
 
-    # Map viewBox (0..64) coords to pixel space, centred at (cx, cy)
-    def to_px(p):
-        x, y = p
-        return (cx + (x - 32) * scale, cy + (y - 32) * scale)
-
-    px_pts = [to_px(p) for p in pts]
-    width = max(1, round(stroke_w * scale))
-
-    for (x1, y1), (x2, y2) in zip(px_pts, px_pts[1:]):
-        draw.line([(x1, y1), (x2, y2)], fill=ACCENT_BLUE, width=width)
-        # round joins/caps
-        r = width / 2
-        draw.ellipse([x1 - r, y1 - r, x1 + r, y1 + r], fill=ACCENT_BLUE)
-        draw.ellipse([x2 - r, y2 - r, x2 + r, y2 + r], fill=ACCENT_BLUE)
-
-    r = dot_r * scale
-    for (x, y) in px_pts:
-        draw.ellipse([x - r, y - r, x + r, y + r], fill=DARK_BLUE)
-
-
-def render_icon(size, bg=None, padding_frac=0.20, favicon_style=False):
-    """Render the mark at `size` px, optionally over an opaque background."""
-    big = size * SS
-    mode = "RGB" if bg is not None else "RGBA"
-    fill = bg if bg is not None else (0, 0, 0, 0)
-    img = Image.new(mode, (big, big), fill)
-    draw = ImageDraw.Draw(img)
-
-    # scale so the 64x64 mark (with padding) fills the canvas
-    usable = big * (1 - 2 * padding_frac)
-    scale = usable / 64
-    draw_zigzag_mark(draw, big / 2, big / 2, scale, favicon_style=favicon_style)
-
-    return img.resize((size, size), Image.LANCZOS)
+    with tempfile.TemporaryDirectory() as tmp:
+        html_path = Path(tmp) / "mark.html"
+        png_path = Path(tmp) / "mark.png"
+        html_path.write_text(html)
+        subprocess.run(
+            [
+                str(CHROME),
+                "--headless",
+                "--disable-gpu",
+                f"--screenshot={png_path}",
+                f"--window-size={size},{size}",
+                "--default-background-color=00000000",
+                "--hide-scrollbars",
+                f"file://{html_path}",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        img = Image.open(png_path)
+        return img.convert("RGBA") if bg is None else img.convert("RGB")
 
 
 def make_favicon_ico():
     sizes = [16, 32, 48]
-    imgs = [render_icon(s, bg=None, padding_frac=0.10, favicon_style=True) for s in sizes]
-    # Largest first as the base image; Pillow's ICO writer resizes it for
-    # every requested size, so render at the biggest size for best quality.
-    biggest = imgs[-1]
+    biggest = render_benzene_mark(48, bg=None, padding_frac=0.08)
     out_path = PUBLIC / "favicon.ico"
     biggest.save(out_path, format="ICO", sizes=[(s, s) for s in sizes])
     return out_path
 
 
 def make_opaque_icon(size, name):
-    img = render_icon(size, bg=PAPER, padding_frac=0.24, favicon_style=False)
+    img = render_benzene_mark(size, bg="#ffffff", padding_frac=0.24)
     out_path = PUBLIC / name
     img.save(out_path, format="PNG")
     return out_path
@@ -287,7 +289,9 @@ def make_og_image():
     group_w = mark_d + mark_gap + ww
     mark_cx = cx - group_w / 2 + mark_d / 2
     text_x = mark_cx + mark_d / 2 + mark_gap
-    draw_zigzag_mark(draw, mark_cx, wordmark_cy, mark_d / 64, favicon_style=False)
+    mark_img = render_benzene_mark(round(mark_d), bg=None, padding_frac=0.04)
+    mark_box = (round(mark_cx - mark_d / 2), round(wordmark_cy - mark_d / 2))
+    img.paste(mark_img, mark_box, mark_img)
     draw_text_centered_v(draw, text_x, wordmark_cy, wordmark_text, f_wordmark, INK)
 
     # ---- 2) Draw molecule structure, centred on cx ----
