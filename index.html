@@ -70,6 +70,60 @@
               "Free forever, no sign-up, no limit"
             ],
             "inLanguage": "en"
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://thealkane.com/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is an IUPAC name?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "An IUPAC name is the systematic name of a compound, built from rules published by the International Union of Pure and Applied Chemistry. Each name describes one organic chemical, and each chemical has exactly one correct name — the names required in organic chemistry exams."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is The Alkane free?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Free forever, no account, nothing to install. It runs in the browser and the naming engine is open source."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Why does it say it cannot name my molecule?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Because it names exactly or refuses. If your structure uses a feature outside the supported set, it reports that rather than inventing a plausible-looking name. The engine is a deterministic, rules-based algorithm, not a machine-learning model that guesses."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is there a limit to how many molecules I can name?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Draw and name as many molecules as you like — there's no cap, no trial period and nothing to pay for, ever."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I use it on a phone?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. The editor is touch-friendly and the layout adapts to small screens."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I use the API in my own app?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. The naming engine is open source and free to use — please credit the project and share what you build. A rate-limited API is also available for free, so long as it isn't abused."
+                }
+              }
+            ]
           }
         ]
       }
@@ -89,6 +143,85 @@
 
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <main class="page page--below-app prose">
+      <h1>IUPAC name generator: draw a structure, get the name</h1>
+
+      <p class="lede">
+        The Alkane is a free IUPAC name generator built for students. Build an organic molecule
+        atom by atom in the editor above and read off its systematic name underneath, updating as
+        you draw. No sign-up, no install, no cost — and no limit on how many molecules you name.
+      </p>
+
+      <h2>What does this tool do?</h2>
+      <p>
+        It converts a <strong>structure into a name</strong>. You draw the molecule and the naming
+        engine works out the parent chain, numbers it, orders the substituents and returns the
+        IUPAC name.
+      </p>
+      <p>
+        It is built for the part of chemistry that is hardest to practise alone: check your own
+        answer against the machine's instantly, then change one bond to see exactly how the name
+        responds.
+      </p>
+
+      <h2>How do you name a molecule with it?</h2>
+      <ol>
+        <li><strong>Select an atom, ring or group</strong> from the toolbar.</li>
+        <li><strong>Select a bond type</strong> from the toolbar.</li>
+        <li>
+          <strong>Choose where to place it</strong> — click an available stub to grow the molecule,
+          or an existing atom to replace it.
+        </li>
+        <li>
+          <strong>Read the name</strong> below the canvas. It refreshes as you draw; if a structure
+          falls outside the supported set, the tool says so instead of guessing.
+        </li>
+      </ol>
+
+      <h2 id="faq">Frequently asked questions</h2>
+      <div class="faq">
+        <h3>What is an IUPAC name?</h3>
+        <p>
+          An IUPAC name is the systematic name of a compound, built from rules published by the
+          International Union of Pure and Applied Chemistry. Each name describes one organic
+          chemical, and each chemical has exactly one correct name — the names required in organic
+          chemistry exams.
+        </p>
+
+        <h3>Is The Alkane free?</h3>
+        <p>
+          Yes! Free forever, no account, nothing to install. It runs in the browser and the
+          naming engine is open source. Learn more on the <a href="/about/">about page</a>.
+        </p>
+
+        <h3>Why does it say it cannot name my molecule?</h3>
+        <p>
+          Because it names exactly or refuses. If your structure uses a feature outside the
+          supported set, it reports that rather than inventing a plausible-looking name. I built the
+          engine as a deterministic, rules-based algorithm — not a machine-learning model that
+          guesses.
+        </p>
+
+        <h3>Is there a limit to how many molecules I can name?</h3>
+        <p>
+          No. Draw and name as many molecules as you like — there's no cap, no trial period and
+          nothing to pay for, ever. The only thing I ask in return is that you share it with your
+          friends, classmates and teachers.
+        </p>
+
+        <h3>Can I use it on a phone?</h3>
+        <p>Yes. The editor is touch-friendly and the layout adapts to small screens.</p>
+
+        <h3>Can I use the API in my own app?</h3>
+        <p>
+          Yes — the naming engine is open source and free to use; please credit the project and
+          share what you build. A rate-limited API is also available for free, so long as you don't
+          abuse it — see the <a href="https://api.thealkane.com/swagger/index.html">documentation</a>,
+          and let me know what you build on <a href="https://github.com/aarianmm">GitHub</a>!
+        </p>
+      </div>
+    </main>
 
     <footer class="site-footer">
       <div class="site-footer__inner">
